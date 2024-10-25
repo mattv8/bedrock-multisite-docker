@@ -1,0 +1,77 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./web:/var/www/web
+      - ./config:/var/www/config
+      - ./vendor:/var/www/vendor
+      - ./logs:/var/www/log
+    depends_on:
+      - php-fpm
+    networks:
+      - app-network
+
+  php-fpm:
+    image: php:8.1-fpm
+    container_name: php-fpm
+    build:
+      context: ./dockerfile
+      dockerfile: php-fpm.Dockerfile
+    volumes:
+      - ./.env:/var/www/.env
+      - ./web:/var/www/web
+      - ./config:/var/www/config
+      - ./vendor:/var/www/vendor
+      - ./logs:/var/www/log
+      - ./wp-cli.yml:/var/www/wp-cli.yml
+    depends_on:
+      - mariadb
+    networks:
+      - app-network
+
+  mariadb:
+    image: mariadb
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    build:
+      context: ./dockerfile
+      dockerfile: mysql.Dockerfile
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./mysql:/docker-entrypoint-initdb.d  # SQL files to be processed on build
+      - db_data:/var/lib/mysql  # Persistent volume for MariaDB data
+    networks:
+      - app-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    ports:
+      - "${PHPMA_PORT}:80"
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      - mariadb
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+
+networks:
+  app-network:

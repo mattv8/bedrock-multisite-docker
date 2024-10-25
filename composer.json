@@ -1,0 +1,26 @@
+{
+    "name": "mattv8/bedrock-docker-multisite",
+    "description": "A Docker-based development stack for Bedrock WordPress multisite, optimized for local development, source control, and CI/CD integration.",
+    "type": "project",
+    "require": {
+        "roots/bedrock": "^1.24",
+        "roots/multisite-url-fixer": "^1.1"
+    },
+    "require-dev": {
+        "roots/bedrock": "^1.24",
+        "roots/multisite-url-fixer": "^1.1"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Matt Visnovsky"
+        }
+    ],
+    "scripts": {
+        "post-install-cmd": [
+            "mkdir -p web",
+            "rsync -av --ignore-existing --exclude-from='.sync-exclusions' vendor/roots/bedrock/ ./",
+            "rm -rf vendor/roots/bedrock"
+        ]
+    }
+}

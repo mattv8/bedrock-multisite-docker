@@ -1,0 +1,16 @@
+# sync-exclusions
+#
+# This file lists files and directories to exclude from rsync during the
+# Composer post-install command. The rsync task copies Bedrock's core files
+# from the vendor directory into the project root.
+#
+# Files listed here are specific to the mattv8/bedrock-multisite-docker
+# environment, containing custom settings or configurations that should not
+# be overwritten during installation.
+#
+# The excluded files for the roots/bedrock Composer install are defined below:
+
+.env
+.env.example
+.gitignore
+config/application.php
