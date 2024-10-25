@@ -72,7 +72,7 @@ To manage your database, use phpMyAdmin, accessible at [http://localhost:${PHPMA
 
 
 ## Migrating vanilla Wordpress to Bedrock WP
-See [docs/Migrating.md](docs/Migrating.md)
+See [mysql/README.md](mysql/README.md)
 
 ## Usage Notes
 - Database Management: Use phpMyAdmin to manage your database, if needed.
