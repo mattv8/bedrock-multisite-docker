@@ -13,4 +13,6 @@
 .env
 .env.example
 .gitignore
-config/application.php
+LICENSE.md
+phpcs.xml
+config/*
