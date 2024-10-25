@@ -39,32 +39,24 @@ This Docker-based Bedrock WordPress stack provides:
 
 ## Installation
 
-### 1. Clone and Set Up the Project
+### 1. Set Up the Project with Composer
 
-Clone this repository into your development directory:
-
-```bash
-git clone https://github.com/mattv8/bedrock-multisite-docker.git
-cd bedrock-docker-multisite
-```
-
-### 2. Install Dependencies with Composer
-
-Run the following command to install dependencies, including Bedrock:
+Install the project using `composer create-project`:
 
 ```bash
-composer install
+composer create-project mattv8/bedrock-multisite-docker your-project-directory
+cd your-project-directory
 ```
 > **Note:** The composer install script will automatically set up the necessary files in the root directory and ensure any existing .env files are preserved.
 
-### 3. Configure the Environment Variables
+### 2. Configure the Environment Variables
 Copy the `.env.example` file to .env and configure the variables as needed:
 
 ```bash
 cp .env.example .env
 ```
 
-### 4. Build and Start the Docker Containers
+### 3. Build and Start the Docker Containers
 Launch the Docker containers with Docker Compose:
 
 ```bash
@@ -72,7 +64,7 @@ sudo sudo docker compose up --build
 ```
 > **Note:** the `--build` flag is only necessary on first run.
 
-### 5. Access the Site
+### 4. Access the Site
 After the containers have started, you can access your WordPress site at:
 
 ```plaintext
