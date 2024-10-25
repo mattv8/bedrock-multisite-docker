@@ -14,5 +14,6 @@
 .env.example
 .gitignore
 LICENSE.md
+README.md
 phpcs.xml
 config/*
