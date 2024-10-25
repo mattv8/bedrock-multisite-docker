@@ -1,4 +1,4 @@
-# Bedrock Docker Multisite Development Stack
+# Bedrock Wordpress Multisite Docker Development Stack
 
 A Docker-based development environment for Bedrock WordPress multisite, designed to streamline local development, version control, and CI/CD integration. This setup is optimized for developers working in a multisite environment and makes it easy to manage WordPress installations in a consistent, containerized environment.
 
