@@ -1,21 +1,56 @@
 {
     "name": "mattv8/bedrock-docker-multisite",
-    "description": "A Docker-based development stack for Bedrock WordPress multisite, optimized for local development, source control, and CI/CD integration.",
     "type": "project",
-    "require": {
-        "roots/bedrock": "^1.24",
-        "roots/multisite-url-fixer": "^1.1"
-    },
-    "require-dev": {
-        "roots/bedrock": "^1.24",
-        "roots/multisite-url-fixer": "^1.1"
-    },
+    "description": "A Docker-based development stack for Bedrock WordPress multisite, optimized for local development, source control, and CI/CD integration.",
     "license": "MIT",
     "authors": [
         {
             "name": "Matt Visnovsky"
         }
     ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.0",
+        "roots/bedrock": "^1.24",
+        "roots/multisite-url-fixer": "^1.1",
+        "composer/installers": "^2.2",
+        "vlucas/phpdotenv": "^5.5",
+        "oscarotero/env": "^2.1",
+        "roots/bedrock-autoloader": "^1.0",
+        "roots/bedrock-disallow-indexing": "^2.0",
+        "roots/wordpress": "6.6.2",
+        "roots/wp-config": "1.0.0",
+        "roots/wp-password-bcrypt": "1.1.0",
+        "wpackagist-theme/twentytwentyfour": "^1.0"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.7.1",
+        "roave/security-advisories": "dev-latest"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "allow-plugins": {
+            "composer/installers": true,
+            "roots/wordpress-core-installer": true
+        }
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://wpackagist.org",
+            "only": ["wpackagist-plugin/*", "wpackagist-theme/*"]
+        }
+    ],
+    "extra": {
+        "installer-paths": {
+            "web/app/mu-plugins/{$name}/": ["type:wordpress-muplugin"],
+            "web/app/plugins/{$name}/": ["type:wordpress-plugin"],
+            "web/app/themes/{$name}/": ["type:wordpress-theme"]
+        },
+        "wordpress-install-dir": "web/wp"
+    },
     "scripts": {
         "post-install-cmd": [
             "mkdir -p web",
