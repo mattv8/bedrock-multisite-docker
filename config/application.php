@@ -70,7 +70,7 @@ if (!env('WP_ENVIRONMENT_TYPE') && in_array(WP_ENV, ['production', 'staging', 'd
 $nginx_port = env('NGINX_PORT') ? ':' . env('NGINX_PORT') : '';
 
 Config::define('WP_HOME', env('WP_HOME') . $nginx_port);
-Config::define('WP_SITEURL', env('WP_SITEURL') . $nginx_port . '/wp');
+Config::define('WP_SITEURL', env('WP_HOME') . $nginx_port . '/wp');
 
 /**
  * Custom Content Directory
