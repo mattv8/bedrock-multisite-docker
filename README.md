@@ -60,7 +60,7 @@ cp .env.example .env
 Launch the Docker containers with Docker Compose:
 
 ```bash
-sudo sudo docker compose up --build
+sudo docker compose up --build
 ```
 > **Note:** the `--build` flag is only necessary on first run.
 
