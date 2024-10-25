@@ -9,7 +9,7 @@ To migrate an existing "vanilla" WordPress site into this Docker-based Bedrock p
     ```bash
     wp db export
     ```
-2. Place the SQL File in the `./mysql/` directory in your Bedrock Docker project. This setup will automatically import any .sql files in ./mysql/ when the MySQL Docker container is built.
+2. Place the SQL File in the `mysql/` directory in your Bedrock Docker project. This setup will automatically import any .sql files in `mysql/` when the MySQL Docker container is built.
 
 3. Rebuild the MySQL Container:
 
@@ -19,7 +19,7 @@ To migrate an existing "vanilla" WordPress site into this Docker-based Bedrock p
 This will restore your database to the Bedrock project.
 
 ### Step 2: Migrate Themes
-1. Copy your themes from the vanilla site to the Bedrock directory. Bedrock uses web/app/ instead of wp-content/, so copy themes accordingly:
+1. Copy your themes from the vanilla site to the Bedrock directory. Bedrock uses `web/app/` instead of `wp-content/`, so copy themes accordingly:
 
     ```bash
     cp -R /path/to/vanillawp/wp-content/themes/* ./web/app/themes
