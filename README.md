@@ -68,7 +68,7 @@ cp .env.example .env
 Launch the Docker containers with Docker Compose:
 
 ```bash
-docker-compose up --build
+sudo sudo docker compose up --build
 ```
 > **Note:** the `--build` flag is only necessary on first run.
 
@@ -95,7 +95,7 @@ To migrate an existing "vanilla" WordPress site into this Docker-based Bedrock p
 3. Rebuild the MySQL Container:
 
     ```bash
-    docker-compose build mariadb
+    sudo docker compose build mariadb
     ```
 This will restore your database to the Bedrock project.
 
@@ -143,16 +143,16 @@ After importing the database, update paths and URLs to match Bedrock’s structu
 1. Run Search and Replace commands via WP-CLI within the Docker container:
 
     ```bash
-    docker-compose exec php-fpm wp search-replace "http://vanilla-site-url" "http://bedrock-site-url"
+    sudo docker compose exec php-fpm wp search-replace "http://vanilla-site-url" "http://bedrock-site-url"
     ```
     ```bash
-    docker-compose exec php-fpm wp search-replace "/wp-content/" "/app/"
+    sudo docker compose exec php-fpm wp search-replace "/wp-content/" "/app/"
     ```
     ```bash
-    docker-compose exec php-fpm wp option update home "http://bedrock-site-url"
+    sudo docker compose exec php-fpm wp option update home "http://bedrock-site-url"
     ```
     ```bash
-    docker-compose exec php-fpm wp option update siteurl "http://bedrock-site-url"
+    sudo docker compose exec php-fpm wp option update siteurl "http://bedrock-site-url"
     ```
 2. Verify Additional Replacements:
 
@@ -170,9 +170,14 @@ Your migrated site should now be live and fully integrated into the Bedrock stru
 ### Troubleshooting
 If you encounter issues, consider the following:
 
-- Database Connection Issues: Verify that the .env file has correct values for DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD.
-- Container Logs: Check Docker logs for specific containers with docker-compose logs <container-name>.
-- Environment Configuration: Ensure DOMAIN_CURRENT_SITE in .env matches the URL you use to access the site.
+- Database Connection Issues: Verify that the `.env` file has correct values for `DB_HOST`, `DB_NAME, DB_USER`, and `DB_PASSWORD`.
+- Container Logs: Check Docker logs for specific containers with `sudo docker compose logs <container-name>`.
+- Environment Configuration: Ensure `DOMAIN_CURRENT_SITE` in `.env` matches the URL you use to access the site.
+- To fresh start the docker stack, do:
+    ```bash
+    sudo docker compose down -v --rmi all
+    sudo docker compose up --build
+    ```
 > **Important Note:** This setup is designed for local development and is not recommended for production use. Always review configurations and optimize security settings when deploying to production environments.
 
 ### Acknowledgments
