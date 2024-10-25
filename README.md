@@ -71,15 +71,15 @@ Once the containers are running, you can access your WordPress site by navigatin
 To manage your database, use phpMyAdmin, accessible at [http://localhost:${PHPMA_PORT}](http://localhost:82).
 
 
-### Migrating vanilla Wordpress to Bedrock WP
+## Migrating vanilla Wordpress to Bedrock WP
 See [docs/Migrating.md](docs/Migrating.md)
 
-### Usage Notes
+## Usage Notes
 - Database Management: Use phpMyAdmin to manage your database, if needed.
 - Persistent Storage: Database and uploaded files are stored in Docker volumes, ensuring data persistence across container restarts.
 - Custom Themes and Plugins: Place custom themes and plugins in `web/app/themes` and `web/app/plugins` respectively.
 
-### Troubleshooting
+## Troubleshooting
 If you encounter issues, consider the following:
 
 - Database Connection Issues: Verify that the `.env` file has correct values for `DB_HOST`, `DB_NAME, DB_USER`, and `DB_PASSWORD`.
@@ -92,5 +92,5 @@ If you encounter issues, consider the following:
     ```
 > **Important Note:** This setup is designed for local development and is not recommended for production use. Always review configurations and optimize security settings when deploying to production environments.
 
-### Acknowledgments
+## Acknowledgments
 This project is inspired by Roots/Bedrock but is an independent setup for Docker-based WordPress multisite development and is not officially supported by Roots/Bedrock.
