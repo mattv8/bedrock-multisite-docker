@@ -44,7 +44,7 @@ This Docker-based Bedrock WordPress stack provides:
 Clone this repository into your development directory:
 
 ```bash
-git clone https://github.com/mattv8/bedrock-docker-multisite.git
+git clone https://github.com/mattv8/bedrock-multisite-docker.git
 cd bedrock-docker-multisite
 ```
 
