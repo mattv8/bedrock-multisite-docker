@@ -5,9 +5,9 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m' # No color
 
-env_dir=. # .env directory
-docker_dir=docker # docker-compose.yml directory
-bedrock_dir=bedrock # docker-compose.yml directory
+env_dir=.. # .env directory
+docker_dir=. # docker-compose.yml directory
+bedrock_dir=../bedrock # docker-compose.yml directory
 
 echo -e "Current directory: $(pwd)"
 
