@@ -21,10 +21,8 @@ check_docker_installed() {
         sudo apt-get -y install docker-ce docker-ce-cli containerd.io
 
         # 5. Add user to docker group
-        sudo groupadd docker
+        sudo groupadd docker || true
         sudo usermod -aG docker $USER
-    # else
-        # echo "Docker is already installed."
     fi
 }
 
@@ -36,8 +34,6 @@ check_docker_compose_installed() {
         mkdir -p $DOCKER_CONFIG/cli-plugins
         curl -SL https://github.com/docker/compose/releases/download/v2.22.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
         chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
-    # else
-        # echo "Docker Compose v2 is already installed."
     fi
 }
 
@@ -46,8 +42,16 @@ check_docker_running() {
     if ! systemctl is-active --quiet docker; then
         echo "Docker daemon is not running. Starting Docker daemon..."
         sudo systemctl start docker
-    # else
-    #     echo "Docker daemon is running."
+    fi
+}
+
+# Function to check if Docker Compose images need to be built
+check_docker_compose_build() {
+    if ! sudo docker compose --env-file ../bedrock/.env -f ../docker/docker-compose.yml config --services | xargs sudo docker images | grep -q "<none>"; then
+        echo "Building Docker Compose images..."
+    sudo docker compose --env-file ../bedrock/.env -f ../docker-compose.yml build
+    else
+        echo "Docker Compose images are already built."
     fi
 }
 
@@ -55,10 +59,11 @@ check_docker_running() {
 check_docker_installed
 check_docker_compose_installed
 check_docker_running
+check_docker_compose_build
 
 # If Docker and Docker Compose are set up and running, exit with success status
 if command -v docker &> /dev/null && docker compose version &> /dev/null && systemctl is-active --quiet docker; then
-    sudo docker compose --env-file ../bedrock/.env -f ../docker-compose.yml up --build
+    sudo docker compose --env-file ../bedrock/.env -f ../docker-compose.yml up
 else
     exit 1
 fi
