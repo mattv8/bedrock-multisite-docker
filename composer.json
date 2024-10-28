@@ -49,12 +49,11 @@
             "web/app/plugins/{$name}/": ["type:wordpress-plugin"],
             "web/app/themes/{$name}/": ["type:wordpress-theme"]
         },
-        "wordpress-install-dir": "web/wp"
+        "wordpress-install-dir": "bedrock/web/wp"
     },
     "scripts": {
         "post-install-cmd": [
-            "mkdir -p web",
-            "rsync -av --ignore-existing --exclude-from='config/.sync-exclusions' vendor/roots/bedrock/ ./"
+            "rsync -av --ignore-existing --exclude='.env' --exclude='.env.example' --exclude='config' vendor/roots/bedrock/ ./bedrock/"
         ]
     }
 }
