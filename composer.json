@@ -54,7 +54,7 @@
     },
     "scripts": {
         "post-install-cmd": [
-            "rsync -av --ignore-existing vendor/roots/bedrock/ ./bedrock/"
+            "rsync -av --ignore-existing ./bedrock/vendor/roots/bedrock/ ./bedrock/"
         ]
     }
 }

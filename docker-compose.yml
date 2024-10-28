@@ -44,7 +44,7 @@ services:
         DB_USER: ${DB_USER}
         DB_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - ./mysql:/docker-entrypoint-initdb.d  # SQL files to be processed on build
+      - ./docker/mysql:/docker-entrypoint-initdb.d  # SQL files to be processed on build
       - db_data:/var/lib/mysql  # Persistent volume for MariaDB data
     networks:
       - app-network
