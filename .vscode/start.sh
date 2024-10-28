@@ -58,7 +58,7 @@ check_docker_running
 
 # If Docker and Docker Compose are set up and running, exit with success status
 if command -v docker &> /dev/null && docker compose version &> /dev/null && systemctl is-active --quiet docker; then
-    sudo docker compose --env-file ../bedrock/.env -f ../docker-compose.yml up
+    sudo docker compose --env-file ../bedrock/.env -f ../docker-compose.yml up --build
 else
     exit 1
 fi

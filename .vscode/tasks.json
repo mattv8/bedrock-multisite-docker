@@ -5,13 +5,6 @@
       "label": "Start Bedrock Server",
       "type": "shell",
       "command": "bash ../.vscode/start.sh",
-      // "command": "bash",
-      // "args": [
-      //   "-c",
-      //   "../.vscode/setup.sh",
-      //   "-c",
-      //   "sudo docker compose up"
-      // ],
       "isBackground": true,
       "group": {
         "kind": "build",
