@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Bedrock Server",
+      "type": "shell",
+      "command": "bash ../.vscode/start.sh",
+      // "command": "bash",
+      // "args": [
+      //   "-c",
+      //   "../.vscode/setup.sh",
+      //   "-c",
+      //   "sudo docker compose up"
+      // ],
+      "isBackground": true,
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/docker"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new"
+      }
+    }
+  ]
+}

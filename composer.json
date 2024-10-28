@@ -53,8 +53,7 @@
     },
     "scripts": {
         "post-install-cmd": [
-            "mkdir -p web",
-            "rsync -av --ignore-existing --exclude-from='config/.sync-exclusions' vendor/roots/bedrock/ ./"
+            "rsync -av --ignore-existing --exclude='.env' --exclude='.env.example' --exclude='config' vendor/roots/bedrock/ ./bedrock/"
         ]
     }
 }
