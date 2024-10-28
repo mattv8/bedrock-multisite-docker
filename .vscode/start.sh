@@ -88,7 +88,7 @@ check_docker_running
 check_docker_compose_build
 
 # If Docker and Docker Compose are set up and running, exit with success status
-if command -v docker &> /dev/null && docker compose version &> /dev/null && systemctl is-active --quiet docker; then
+if command -v docker &> /dev/null && sudo docker compose version &> /dev/null && systemctl is-active --quiet docker; then
     sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml up
 else
     echo -e "${RED}Error: Docker or Docker Compose are not set up properly.${NC}"
