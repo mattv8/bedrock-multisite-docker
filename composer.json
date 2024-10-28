@@ -1,5 +1,5 @@
 {
-    "name": "mattv8/bedrock-docker-multisite",
+    "name": "mattv8/bedrock-multisite-docker",
     "type": "project",
     "description": "A Docker-based development stack for Bedrock WordPress multisite, optimized for local development, source control, and CI/CD integration.",
     "license": "MIT",
