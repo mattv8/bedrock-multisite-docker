@@ -5,9 +5,10 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m' # No color
 
-env_dir=.. # .env directory
-docker_dir=. # docker-compose.yml directory
-bedrock_dir=../bedrock # docker-compose.yml directory
+env_dir=../bedrock # .env directory
+docker_dir=.. # docker-compose.yml directory
+bedrock_dir=$env_dir # Bedrock project directory
+$composer_dir=$docker_dir # composer.json directory
 
 echo -e "Current directory: $(pwd)"
 
@@ -75,7 +76,7 @@ check_dot_env() {
 check_bedrock() {
     if [ ! -f $bedrock_dir/web/index.php ]; then
         echo -e "${YELLOW}Setting up Bedrock Wordpress...${NC}"
-        composer install
+        composer install -d $composer_dir
     fi
 }
 
@@ -88,7 +89,7 @@ check_docker_running
 check_docker_compose_build
 
 # If Docker and Docker Compose are set up and running, exit with success status
-if command -v docker &> /dev/null && docker compose version &> /dev/null && systemctl is-active --quiet docker; then
+if command -v docker &> /dev/null && sudo docker compose version &> /dev/null && systemctl is-active --quiet docker; then
     sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml up
 else
     echo -e "${RED}Error: Docker or Docker Compose are not set up properly.${NC}"
