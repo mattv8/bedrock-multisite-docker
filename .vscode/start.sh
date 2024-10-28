@@ -76,7 +76,7 @@ check_dot_env() {
 check_bedrock() {
     if [ ! -f $bedrock_dir/web/index.php ]; then
         echo -e "${YELLOW}Setting up Bedrock Wordpress...${NC}"
-        composer install -d $composer_dir
+        composer install
     fi
 }
 
