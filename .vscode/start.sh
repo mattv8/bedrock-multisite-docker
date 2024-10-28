@@ -7,6 +7,7 @@ NC='\033[0m' # No color
 
 env_dir=. # .env directory
 docker_dir=$env_dir # docker-compose.yml directory
+bedrock_dir=$env_dir # docker-compose.yml directory
 
 echo -e "Current directory: $(pwd)"
 
@@ -71,8 +72,16 @@ check_dot_env() {
     fi
 }
 
+check_bedrock() {
+    if [ ! -f $bedrock_dir/web/index.php ]; then
+        echo -e "${YELLOW}Setting up Bedrock Wordpress...${NC}"
+        composer install
+    fi
+}
+
 # Run checks and installations
 check_dot_env
+check_bedrock
 check_docker_installed
 check_docker_compose_installed
 check_docker_running
