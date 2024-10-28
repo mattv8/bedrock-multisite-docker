@@ -1,13 +1,19 @@
 #!/bin/bash
+
+# Color codes
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No color
+
 env_dir=. # .env directory
 docker_dir=$env_dir # docker-compose.yml directory
 
-echo "Current directory: $(pwd)"
+echo -e "Current directory: $(pwd)"
 
 # Check if Docker is installed
 check_docker_installed() {
     if ! command -v docker &> /dev/null; then
-        echo "Docker is not installed. Installing Docker..."
+        echo -e "${RED}Docker is not installed. Installing Docker...${NC}"
         # 1. Required dependencies
         sudo apt-get update
         sudo apt-get -y install apt-transport-https ca-certificates curl gnupg lsb-release
@@ -33,7 +39,7 @@ check_docker_installed() {
 # Check if Docker Compose v2 is installed
 check_docker_compose_installed() {
     if ! sudo docker compose version &> /dev/null; then
-        echo "Docker Compose v2 is not installed. Installing Docker Compose v2..."
+        echo -e "${YELLOW}Docker Compose v2 is not installed. Installing Docker Compose v2...${NC}"
         DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
         mkdir -p $DOCKER_CONFIG/cli-plugins
         curl -SL https://github.com/docker/compose/releases/download/v2.22.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
@@ -44,7 +50,7 @@ check_docker_compose_installed() {
 # Check if Docker daemon is running
 check_docker_running() {
     if ! systemctl is-active --quiet docker; then
-        echo "Docker daemon is not running. Starting Docker daemon..."
+        echo -e "${YELLOW}Docker daemon is not running. Starting Docker daemon...${NC}"
         sudo systemctl start docker
     fi
 }
@@ -52,7 +58,7 @@ check_docker_running() {
 # Check if Docker Compose images need to be built
 check_docker_compose_build() {
     if ! sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml config --services | xargs sudo docker images | grep -q "<none>"; then
-        echo "Building Docker Compose images..."
+        echo -e "Building Docker Compose images..."
         sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml build
     fi
 }
@@ -60,7 +66,7 @@ check_docker_compose_build() {
 check_dot_env() {
     if [ ! -f $env_dir/.env ]; then
         cp $env_dir/.env.example $env_dir/.env
-        echo "A .env file has been created from $env_dir/.env.example. Please edit it to configure your environment settings and run the build task again."
+        echo -e "${RED}A .env file has been created from $env_dir/.env.example. Please edit it to configure your environment settings and run the build task again.${NC}"
         exit 1
     fi
 }
@@ -76,5 +82,6 @@ check_docker_compose_build
 if command -v docker &> /dev/null && docker compose version &> /dev/null && systemctl is-active --quiet docker; then
     sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml up
 else
+    echo -e "${RED}Error: Docker or Docker Compose are not set up properly.${NC}"
     exit 1
 fi
