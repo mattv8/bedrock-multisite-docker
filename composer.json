@@ -31,7 +31,6 @@
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "vendor-dir": "bedrock/vendor",
         "allow-plugins": {
             "composer/installers": true,
             "roots/wordpress-core-installer": true
@@ -54,7 +53,7 @@
     },
     "scripts": {
         "post-install-cmd": [
-            "rsync -av --ignore-existing ./bedrock/vendor/roots/bedrock/ ./bedrock/"
+            "rsync -av --ignore-existing ./vendor/roots/bedrock/ ./bedrock/"
         ]
     }
 }

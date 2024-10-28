@@ -21,6 +21,7 @@ services:
       dockerfile: php-fpm.Dockerfile
     volumes:
       - ./bedrock:/var/www/html
+      - ./vendor:/var/www/html/vendor
       - ./logs:/var/www/log
     depends_on:
       - mariadb
