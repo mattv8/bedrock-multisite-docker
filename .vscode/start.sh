@@ -8,6 +8,7 @@ NC='\033[0m' # No color
 env_dir=. # .env directory
 docker_dir=$env_dir # docker-compose.yml directory
 bedrock_dir=$env_dir # docker-compose.yml directory
+dockerfile_dir=dockerfile # dockerfile directory
 
 echo -e "Current directory: $(pwd)"
 
@@ -58,10 +59,17 @@ check_docker_running() {
 
 # Check if Docker Compose images need to be built
 check_docker_compose_build() {
-    if ! sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml config --services | xargs sudo docker images | grep -q "<none>"; then
-        echo -e "Building Docker Compose images..."
-        sudo docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml build
-    fi
+    for dockerfile_path in "${dockerfile_dir}"/*.Dockerfile; do
+
+        # Extract service name from Dockerfile name (e.g., php-fpm from php-fpm.Dockerfile)
+        service=$(basename "$dockerfile_path" .Dockerfile)
+
+        # Check if an image for the service already exists
+        if ! sudo docker images | awk '{print $1}' | grep -q "^${service}$"; then
+            echo "Image for service '${service}' does not exist. Building now..."
+            sudo docker compose --env-file "${env_dir}/.env" -f "$docker_dir/docker-compose.yml" build "${service}"
+        fi
+    done
 }
 
 check_dot_env() {

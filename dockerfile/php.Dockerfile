@@ -1,7 +1,12 @@
-FROM php:8.2-fpm
+FROM php:8.3-fpm
+
+# Update sources list to use a faster mirror if /etc/apt/sources.list exists
+RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.ocf.berkeley.edu/debian|g' /etc/apt/sources.list.d/debian.sources
 
 # Install dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt update -o Acquire::http::Timeout="60"
+
+RUN apt install -y \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
     libpng-dev \
@@ -16,7 +21,8 @@ RUN apt-get update && apt-get install -y \
     less \
     mariadb-client \
     sudo \
-    curl
+    curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -32,6 +38,14 @@ RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli
 
 # Verify WP-CLI installation
 RUN wp --info
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer -o composer-setup.php \
+    && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
+    && rm composer-setup.php
+
+# Verify Composer installation
+RUN composer --version
 
 # Clean up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
