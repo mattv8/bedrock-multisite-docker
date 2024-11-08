@@ -165,6 +165,7 @@ Config::define('SITE_ID_CURRENT_SITE', env('SITE_ID_CURRENT_SITE') ?: 1);
 Config::define('BLOG_ID_CURRENT_SITE', env('BLOG_ID_CURRENT_SITE') ?: 1);
 Config::define('ADMIN_COOKIE_PATH', '/');
 Config::define('COOKIEPATH', '');
+Config::define('SUNRISE', env('SUNRISE') ?: false);
 
 Config::apply();
 
