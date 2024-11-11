@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "98f8c2eac8105078bc805c2eb0709ebf",
+    "content-hash": "6af00fe85c78c41e1e48b703e0b2e655",
     "packages": [
         {
             "name": "composer/installers",
@@ -213,6 +213,48 @@
                 }
             ],
             "time": "2024-07-20T21:45:45+00:00"
+        },
+        {
+            "name": "mattv8/multisite-url-fixer",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mattv8/multisite-url-fixer.git",
+                "reference": "c09f1e023331feca8471a5b85610272427c2009e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mattv8/multisite-url-fixer/zipball/c09f1e023331feca8471a5b85610272427c2009e",
+                "reference": "c09f1e023331feca8471a5b85610272427c2009e",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.0.0"
+            },
+            "require-dev": {
+                "squizlabs/php_codesniffer": "^3.1"
+            },
+            "default-branch": true,
+            "type": "wordpress-muplugin",
+            "autoload": {
+                "psr-4": {
+                    "URLFixer\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Fixes WordPress issues with home and site URL on multisite when using Bedrock",
+            "homepage": "https://github.com/mattv8/multisite-url-fixer",
+            "keywords": [
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/mattv8/multisite-url-fixer/issues",
+                "source": "https://github.com/mattv8/multisite-url-fixer/tree/master"
+            },
+            "time": "2024-11-11T22:53:07+00:00"
         },
         {
             "name": "oscarotero/env",
@@ -561,49 +603,6 @@
                 }
             ],
             "time": "2020-05-20T01:25:07+00:00"
-        },
-        {
-            "name": "roots/multisite-url-fixer",
-            "version": "1.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/roots/multisite-url-fixer.git",
-                "reference": "e664180d71b29ae8362261ae3bc772a28eac2308"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/roots/multisite-url-fixer/zipball/e664180d71b29ae8362261ae3bc772a28eac2308",
-                "reference": "e664180d71b29ae8362261ae3bc772a28eac2308",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=7.0.0"
-            },
-            "require-dev": {
-                "squizlabs/php_codesniffer": "^3.1"
-            },
-            "type": "wordpress-muplugin",
-            "autoload": {
-                "psr-4": {
-                    "Roots\\Bedrock\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "Fixes WordPress issues with home and site URL on multisite when using Bedrock",
-            "homepage": "https://roots.io/bedrock/",
-            "keywords": [
-                "wordpress"
-            ],
-            "support": {
-                "forum": "https://discourse.roots.io/",
-                "issues": "https://github.com/roots/multisite-url-fixer/issues",
-                "source": "https://github.com/roots/multisite-url-fixer/tree/1.1.0"
-            },
-            "abandoned": true,
-            "time": "2017-10-17T21:07:50+00:00"
         },
         {
             "name": "roots/wordpress",
@@ -2174,6 +2173,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
+        "mattv8/multisite-url-fixer": 20,
         "roave/security-advisories": 20
     },
     "prefer-stable": true,
@@ -2181,6 +2181,6 @@
     "platform": {
         "php": ">=8.0"
     },
-    "platform-dev": {},
+    "platform-dev": [],
     "plugin-api-version": "2.6.0"
 }

@@ -13,7 +13,6 @@
     "require": {
         "php": ">=8.0",
         "roots/bedrock": "^1.24",
-        "roots/multisite-url-fixer": "^1.1",
         "composer/installers": "^2.2",
         "vlucas/phpdotenv": "^5.5",
         "oscarotero/env": "^2.1",
@@ -21,7 +20,8 @@
         "roots/bedrock-disallow-indexing": "^2.0",
         "roots/wordpress": "6.6.2",
         "roots/wp-config": "1.0.0",
-        "roots/wp-password-bcrypt": "1.1.0"
+        "roots/wp-password-bcrypt": "1.1.0",
+        "mattv8/multisite-url-fixer": "dev-master"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.7.1",
