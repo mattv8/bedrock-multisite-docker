@@ -67,6 +67,7 @@ if (!env('WP_ENVIRONMENT_TYPE') && in_array(WP_ENV, ['production', 'staging', 'd
 /**
  * URLs
  */
+
 $nginx_port = env('NGINX_PORT') ? ':' . env('NGINX_PORT') : '';
 
 Config::define('NGINX_PORT', env('NGINX_PORT') ?: '');
@@ -164,7 +165,6 @@ Config::define('DOMAIN_CURRENT_SITE', env('DOMAIN_CURRENT_SITE') . $nginx_port);
 Config::define('PATH_CURRENT_SITE', env('PATH_CURRENT_SITE') ?: '/');
 Config::define('SITE_ID_CURRENT_SITE', env('SITE_ID_CURRENT_SITE') ?: 1);
 Config::define('BLOG_ID_CURRENT_SITE', env('BLOG_ID_CURRENT_SITE') ?: 1);
-Config::define('COOKIE_DOMAIN', env('DOMAIN_CURRENT_SITE') ?: env('WP_HOME'));
 Config::define('SUNRISE', env('SUNRISE') ?: false);
 
 Config::apply();

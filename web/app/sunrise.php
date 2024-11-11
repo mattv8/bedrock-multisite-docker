@@ -13,11 +13,12 @@ if ($environment === 'development' || $environment === 'staging') {
 
     // Parse the domain and subdomain from the request
     $domain = strtolower($_SERVER['HTTP_HOST'] ?? '');
-    $base_domain = parse_url($wp_home, PHP_URL_HOST) . $nginx_port;
+    $base_domain = parse_url($wp_home, PHP_URL_HOST);
+    $base_domain_with_port = $base_domain . $nginx_port;
     $subdomain = null;
 
     // Extract the subdomain if it differs from the base domain
-    if (strpos(explode('.', $domain)[0], $base_domain) === false) {
+    if (strpos(explode('.', $domain)[0], $base_domain_with_port) === false) {
         $subdomain = explode('.', $domain)[0];
     }
 
@@ -38,7 +39,7 @@ if ($environment === 'development' || $environment === 'staging') {
     // Set $current_site and $current_blog based on environment variables and dynamic values
     $current_site = (object) [
         'id' => $site_id,
-        'domain' => $base_domain,
+        'domain' => $base_domain_with_port,
         'path' => Config::get('PATH_CURRENT_SITE') ?: '/',
         'blog_id' => $blog_id,
         'public' => 1,
@@ -52,7 +53,7 @@ if ($environment === 'development' || $environment === 'staging') {
     $current_blog = (object) [
         'blog_id' => $blog_id,
         'site_id' => $site_id,
-        'domain' => $subdomain ? $subdomain . '.' . $base_domain : $base_domain,
+        'domain' => $subdomain ? $subdomain . '.' . $base_domain_with_port : $base_domain_with_port,
         'path' => Config::get('PATH_CURRENT_SITE') ?: '/',
         'public' => 1,
         'archived' => 0,
@@ -61,6 +62,10 @@ if ($environment === 'development' || $environment === 'staging') {
         'deleted' => 0,
         'lang_id' => 0,
     ];
+
+    // Set COOKIE_DOMAIN to handle subdomains dynamically
+    $cookie_domain = $subdomain ? $subdomain . '.' . $base_domain : $base_domain;
+    define('COOKIE_DOMAIN', $cookie_domain);
 
     // Debugging log to confirm settings in development
     if ($environment === 'development') {
