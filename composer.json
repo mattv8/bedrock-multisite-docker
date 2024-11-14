@@ -39,7 +39,7 @@
         {
             "type": "composer",
             "url": "https://wpackagist.org",
-            "only": ["wpackagist-plugin/*", "wpackagist-theme/*"]
+            "only": ["wpackagist-plugin/*", "wpackagist-theme/*", "roots/*"]
         }
     ],
     "extra": {
