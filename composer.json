@@ -32,7 +32,8 @@
         "preferred-install": "dist",
         "allow-plugins": {
             "composer/installers": true,
-            "roots/wordpress-core-installer": true
+            "roots/wordpress-core-installer": true,
+            "roots/wordpress-installer": true
         }
     },
     "repositories": [
@@ -55,5 +56,9 @@
             "mkdir -p web",
             "rsync -av --ignore-existing vendor/roots/bedrock/ ./"
         ]
+    },
+    "replace": {
+        "wpackagist-theme/twentytwentyfour": "*",
+        "wpackagist-theme/twentytwentyfive": "*"
     }
 }
