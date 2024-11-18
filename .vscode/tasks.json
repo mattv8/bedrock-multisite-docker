@@ -2,6 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Install Environment",
+      "type": "shell",
+      "command": "bash .vscode/install.sh",
+      "isBackground": false,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new"
+      }
+    },
+    {
       "label": "Start Bedrock Server",
       "type": "shell",
       "command": "bash .vscode/start.sh",
