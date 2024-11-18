@@ -63,8 +63,8 @@ services:
     environment:
       PMA_HOST: mariadb
       PMA_PORT: 3306
-      PMA_USER: ${PHPMA_LOGIN:+${DB_USER}}
-      PMA_PASSWORD: ${PHPMA_LOGIN:+${DB_PASSWORD}}
+      ${PHPMA_LOGIN:+PMA_USER}: ${DB_USER}
+      ${PHPMA_LOGIN:+PMA_PASSWORD}: ${DB_PASSWORD}
     depends_on:
       - mariadb
     networks:
