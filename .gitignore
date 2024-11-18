@@ -1,8 +1,12 @@
+# System
+.DS_Store
+
 # Application
 web/app/plugins/*
 !web/app/plugins/.gitkeep
 web/app/mu-plugins/*/
-web/app/themes/twentytwentyfour/
+web/app/mu-plugins/bedrock-autoloader.php
+web/app/themes/twentytwenty*/
 web/app/upgrade
 web/app/uploads/*
 !web/app/uploads/.gitkeep
@@ -22,9 +26,31 @@ web/.htaccess
 
 # Composer
 /vendor
+web/app/themes/**/vendor
+web/app/plugins/**/vendor
 
 # WP-CLI
 wp-cli.local.yml
 
 # SQL
 mysql/_grants.sql
+
+# Cache
+**/cache
+
+# Database dumps
+mysql/*.sql
+
+# Laravel Generated
+**/main.js.LICENSE.txt
+**/*.css.map
+**/*.js.map
+**/node_modules/
+**/public/js/
+**/public/css/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Source-controlled plugins
+!example-plugin
