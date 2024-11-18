@@ -1,7 +1,11 @@
 FROM php:8.3-fpm
 
 # Update sources list to use a faster mirror if /etc/apt/sources.list exists
-RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.ocf.berkeley.edu/debian|g' /etc/apt/sources.list.d/debian.sources
+# RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.ocf.berkeley.edu/debian|g' /etc/apt/sources.list.d/debian.sources
+
+# Set arguments for UID and GID (provided by docker-compose)
+ARG UID
+ARG GID
 
 # Install dependencies
 RUN apt update -o Acquire::http::Timeout="60"
@@ -23,6 +27,14 @@ RUN apt install -y \
     sudo \
     curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Modify the www-data group and user to match the host's UID and GID
+RUN groupmod -g ${GID} www-data && \
+    usermod -u ${UID} -g www-data www-data
+
+# Set the working directory and ownership
+WORKDIR /var/www
+RUN chown -R www-data:www-data /var/www
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -49,3 +61,6 @@ RUN composer --version
 
 # Clean up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Run as www-data
+USER www-data
