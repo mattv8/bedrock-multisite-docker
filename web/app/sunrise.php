@@ -6,6 +6,7 @@ use Roots\WPConfig\Config;
 $environment = defined('WP_ENV') ? WP_ENV : '';
 $wp_home = Config::get('WP_HOME') ?: 'http://localhost';
 $nginx_port = Config::get('NGINX_PORT') ? ':' . Config::get('NGINX_PORT') : '';
+$subdomain_suffix = Config::get('SUBDOMAIN_SUFFIX') ?: '';
 
 // Only proceed for development or staging environments
 if ($environment === 'development' || $environment === 'staging') {
@@ -20,6 +21,9 @@ if ($environment === 'development' || $environment === 'staging') {
     // Extract the subdomain if it differs from the base domain
     if (strpos(explode('.', $domain)[0], $base_domain_with_port) === false) {
         $subdomain = explode('.', $domain)[0];
+        if ($subdomain_suffix && str_ends_with($subdomain, $subdomain_suffix)) {
+            $subdomain = substr($subdomain, 0, -strlen($subdomain_suffix));
+        }
     }
 
     // If subdomain exists, fetch corresponding blog_id and site_id from the database
@@ -53,7 +57,9 @@ if ($environment === 'development' || $environment === 'staging') {
     $current_blog = (object) [
         'blog_id' => $blog_id,
         'site_id' => $site_id,
-        'domain' => $subdomain ? $subdomain . '.' . $base_domain_with_port : $base_domain_with_port,
+        'domain' => $subdomain
+            ? $subdomain . $subdomain_suffix . '.' . $base_domain_with_port
+            : $base_domain_with_port,
         'path' => Config::get('PATH_CURRENT_SITE') ?: '/',
         'public' => 1,
         'archived' => 0,
@@ -63,8 +69,10 @@ if ($environment === 'development' || $environment === 'staging') {
         'lang_id' => 0,
     ];
 
-    // Set COOKIE_DOMAIN to handle subdomains dynamically
-    $cookie_domain = $subdomain ? $subdomain . '.' . $base_domain : $base_domain;
+    // Set COOKIE_DOMAIN to handle subdomains dynamically, including suffix
+    $cookie_domain = $subdomain
+        ? $subdomain . $subdomain_suffix . '.' . $base_domain
+        : $base_domain;
     define('COOKIE_DOMAIN', $cookie_domain);
 
     // Debugging log to confirm settings in development

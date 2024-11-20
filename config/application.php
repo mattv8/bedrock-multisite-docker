@@ -69,6 +69,7 @@ if (!env('WP_ENVIRONMENT_TYPE') && in_array(WP_ENV, ['production', 'staging', 'd
  */
 
 $nginx_port = env('NGINX_PORT') ? ':' . env('NGINX_PORT') : '';
+$subdomain_suffix = env('SUBDOMAIN_SUFFIX');
 
 Config::define('NGINX_PORT', env('NGINX_PORT') ?: '');
 Config::define('WP_HOME', env('WP_HOME') . $nginx_port);
@@ -161,11 +162,17 @@ if (file_exists($env_config)) {
 Config::define('WP_ALLOW_MULTISITE', env('WP_ALLOW_MULTISITE') ?: false);
 Config::define('MULTISITE', env('MULTISITE') ?: false);// Activate the multisite network
 Config::define('SUBDOMAIN_INSTALL', env('SUBDOMAIN_INSTALL') ?: false); // Set to true if using subdomains
-Config::define('DOMAIN_CURRENT_SITE', env('DOMAIN_CURRENT_SITE') . $nginx_port);
 Config::define('PATH_CURRENT_SITE', env('PATH_CURRENT_SITE') ?: '/');
 Config::define('SITE_ID_CURRENT_SITE', env('SITE_ID_CURRENT_SITE') ?: 1);
 Config::define('BLOG_ID_CURRENT_SITE', env('BLOG_ID_CURRENT_SITE') ?: 1);
 Config::define('SUNRISE', env('SUNRISE') ?: false);
+Config::define('SUBDOMAIN_SUFFIX', env('SUBDOMAIN_SUFFIX') ?: false);
+
+// Extract the subdomain if it differs from the base domain
+if (Config::get('SUBDOMAIN_INSTALL')) {
+    $url_parts = explode('.', env('DOMAIN_CURRENT_SITE'));
+    Config::define('DOMAIN_CURRENT_SITE', $url_parts[0] . Config::get('SUBDOMAIN_SUFFIX') . "." . $url_parts[1] . $url_parts[2] . $url_parts[3]);
+}
 
 Config::apply();
 
