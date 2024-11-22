@@ -170,8 +170,18 @@ Config::define('SUBDOMAIN_SUFFIX', env('SUBDOMAIN_SUFFIX') ?: false);
 
 // Extract the subdomain if it differs from the base domain
 if (Config::get('SUBDOMAIN_INSTALL')) {
-    $url_parts = explode('.', env('DOMAIN_CURRENT_SITE'));
-    Config::define('DOMAIN_CURRENT_SITE', $url_parts[0] . Config::get('SUBDOMAIN_SUFFIX') . "." . $url_parts[1] . $url_parts[2] . $url_parts[3]);
+    $domain = env('DOMAIN_CURRENT_SITE');
+    if (strpos($domain, '://') === false) {
+        $domain = 'http://' . $domain; // Prepend a default scheme
+    }
+
+    $wp_base_domain = get_base_domain($domain);
+
+    if ($wp_base_domain) {
+        Config::define('DOMAIN_CURRENT_SITE', $wp_base_domain . Config::get('SUBDOMAIN_SUFFIX'));
+    } else {
+        error_log("Invalid DOMAIN_CURRENT_SITE: $domain");
+    }
 }
 
 Config::apply();
@@ -181,4 +191,48 @@ Config::apply();
  */
 if (!defined('ABSPATH')) {
     define('ABSPATH', $webroot_dir . '/wp/');
+}
+
+
+/**
+ * Extracts the base domain from a given URL, stripping subdomains if applicable,
+ * and appends the port unless it is 80 (HTTP) or 443 (HTTPS).
+ *
+ * This function handles multi-level domains (e.g., example.co.uk) and preserves
+ * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
+ *
+ * @param string $url The URL from which to extract the base domain and port.
+ * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
+ */
+function get_base_domain($url) {
+    $parsed_url = parse_url($url);
+    if (!isset($parsed_url['host'])) {
+        error_log("Invalid URL: $url");
+        return null;
+    }
+
+    $host = $parsed_url['host'];
+    $port = isset($parsed_url['port']) && !in_array($parsed_url['port'], [80, 443])
+        ? ':' . $parsed_url['port']
+        : '';
+
+    // Split the host into parts
+    $host_parts = explode('.', $host);
+
+    // Determine the base domain based on common patterns
+    $num_parts = count($host_parts);
+    if (strpos($host,'localhost')) {
+        $base_domain = 'localhost';
+    } elseif ($num_parts > 2) {
+        // Handle domains like example.co.uk
+        $base_domain = implode('.', array_slice($host_parts, -2));
+        if (in_array($host_parts[$num_parts - 2], ['co', 'gov', 'ac'])) {
+            $base_domain = implode('.', array_slice($host_parts, -3));
+        }
+    } else {
+        // For domains like example.com
+        $base_domain = $host;
+    }
+
+    return $base_domain . $port;
 }
