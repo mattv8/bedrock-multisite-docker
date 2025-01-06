@@ -7,6 +7,7 @@ $environment = defined('WP_ENV') ? WP_ENV : '';
 $wp_home = Config::get('WP_HOME') ?: 'http://localhost';
 $nginx_port = Config::get('NGINX_PORT') ? ':' . Config::get('NGINX_PORT') : '';
 $subdomain_suffix = Config::get('SUBDOMAIN_SUFFIX') ?: '';
+$default_site = Config::get('DOMAIN_CURRENT_SITE') ?: '';
 
 // Only proceed for development or staging environments
 if ($environment === 'development' || $environment === 'staging') {
@@ -18,7 +19,7 @@ if ($environment === 'development' || $environment === 'staging') {
 
     // Extract the subdomain if it differs from the base domain
     $subdomain = null;
-    if (strpos(explode('.', $domain)[0], $wp_base_domain) === false) {
+    if (strpos(explode('.', $domain)[0], $wp_base_domain['with_port']) === false) {
         $subdomain = explode('.', $domain)[0];
         if ($subdomain_suffix && str_ends_with($subdomain, $subdomain_suffix)) {
             $subdomain = substr($subdomain, 0, -strlen($subdomain_suffix));
@@ -42,7 +43,9 @@ if ($environment === 'development' || $environment === 'staging') {
     // Set $current_site and $current_blog based on environment variables and dynamic values
     $current_site = (object) [
         'id' => $site_id,
-        'domain' => $wp_base_domain,
+        'domain' => $subdomain
+            ? $subdomain . $subdomain_suffix . '.' . $wp_base_domain['without_port']
+            : $wp_base_domain['without_port'], // Use base domain if no subdomain
         'path' => Config::get('PATH_CURRENT_SITE') ?: '/',
         'blog_id' => $blog_id,
         'public' => 1,
@@ -57,8 +60,8 @@ if ($environment === 'development' || $environment === 'staging') {
         'blog_id' => $blog_id,
         'site_id' => $site_id,
         'domain' => $subdomain
-            ? $subdomain . $subdomain_suffix . '.' . $wp_base_domain
-            : $wp_base_domain,
+            ? $subdomain . $subdomain_suffix . '.' . $wp_base_domain['without_port']
+            : $wp_base_domain['without_port'],
         'path' => Config::get('PATH_CURRENT_SITE') ?: '/',
         'public' => 1,
         'archived' => 0,
@@ -70,12 +73,62 @@ if ($environment === 'development' || $environment === 'staging') {
 
     // Set COOKIE_DOMAIN to handle subdomains dynamically, including suffix
     $cookie_domain = $subdomain
-        ? $subdomain . $subdomain_suffix . '.' . $wp_base_domain
-        : $wp_base_domain;
+        ? $subdomain . $subdomain_suffix . '.' . $wp_base_domain['without_port']
+        : $wp_base_domain['without_port'];
     define('COOKIE_DOMAIN', $cookie_domain);
 
     // Debugging log to confirm settings in development
     if ($environment === 'development') {
-        error_log("SUNRISE: Detected subdomain '{$subdomain}', setting current_blog->domain to {$current_blog->domain}, blog_id to {$blog_id}, site_id to {$site_id}");
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
+        $final_url = "$scheme://$domain" . "$uri";
+        error_log("SUNRISE: COOKIE_DOMAIN=$cookie_domain, blog_id=$blog_id, site_id=$site_id, Rewritten URL: $final_url");
     }
+}
+
+
+/**
+ * Extracts the base domain from a given URL, stripping subdomains if applicable,
+ * and appends the port unless it is 80 (HTTP) or 443 (HTTPS).
+ *
+ * This function handles multi-level domains (e.g., example.co.uk) and preserves
+ * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
+ *
+ * @param string $url The URL from which to extract the base domain and port.
+ * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
+ */
+function get_base_domain($url) {
+    $parsed_url = parse_url($url);
+    if (!isset($parsed_url['host'])) {
+        error_log("Invalid URL: $url");
+        return null;
+    }
+
+    $host = $parsed_url['host'];
+    $port = isset($parsed_url['port']) && !in_array($parsed_url['port'], [80, 443])
+        ? ':' . $parsed_url['port']
+        : '';
+
+    // Split the host into parts
+    $host_parts = explode('.', $host);
+
+    // Determine the base domain based on common patterns
+    $num_parts = count($host_parts);
+    if (strpos($host,'localhost')) {
+        $base_domain = 'localhost';
+    } elseif ($num_parts > 2) {
+        // Handle domains like example.co.uk
+        $base_domain = implode('.', array_slice($host_parts, -2));
+        if (in_array($host_parts[$num_parts - 2], ['co', 'gov', 'ac'])) {
+            $base_domain = implode('.', array_slice($host_parts, -3));
+        }
+    } else {
+        // For domains like example.com
+        $base_domain = $host;
+    }
+
+    return [
+        'with_port' => $base_domain . $port,
+        'without_port' => $base_domain,
+    ];
 }

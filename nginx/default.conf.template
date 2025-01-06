@@ -1,0 +1,93 @@
+# -----------------------------------------------------------------------------
+# CHANGES TO THIS FILE WHILE THE CONTAINER IS RUNNING WILL HAVE NO EFFECT.
+# This is a template for the Nginx configuration file. It is processed at
+# runtime to replace placeholders with environment variable values. To make
+# changes to the Nginx configuration, edit nginx/default.conf and restart
+# the Nginx container with:
+#   sudo docker restart nginx
+#
+# Environment variables used for substitution in this template are set at
+# build time. To apply changes to this template, the Nginx Docker image must
+# be rebuilt using:
+#   sudo docker compose build nginx --no-cache
+#
+# Note: Any runtime changes to environment variables require a container rebuild.
+# -----------------------------------------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name ${WP_HOME} *.${WP_HOME};
+
+    error_log  /var/www/log/nginx_error.log;
+
+    root /var/www/web;
+    index index.php index.html;
+
+    # Subdomain multisite rewrites
+    rewrite ^/(wp-.*.php)$ /wp/$1 last;
+    rewrite ^/(wp-(content|admin|includes).*) /wp/$1 last;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location = /xmlrpc.php {
+      deny all;
+      access_log off;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass php-fpm:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+
+        # Set PHP error handling directives
+        fastcgi_param PHP_VALUE "log_errors=On\nerror_log=/var/www/log/php_errors.log\ndisplay_errors=Off";
+
+        # CORS headers for PHP files
+        set $cors_origin "*";
+        if ($http_origin ~* ^https?:\/\/(${WP_HOME}|.*${SUBDOMAIN_SUFFIX}\.${WP_HOME})(:[0-9]+)?$) {
+            set $cors_origin $http_origin;
+        }
+
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Origin, Content-Type, Accept, Authorization" always;
+
+        # Handle CORS preflight requests for PHP
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin $cors_origin always;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Origin, Content-Type, Accept, Authorization" always;
+            add_header Content-Length 0;
+            add_header Content-Type text/plain;
+            return 204;
+        }
+    }
+
+    # Caching for static files
+    location ~* \.(css|js|pdf|jpg|jpeg|png|gif|ico)$ {
+        add_header Cache-Control "public, max-age=300";
+        expires 5m;
+    }
+
+    # CORS headers for specific file types
+    location ~* \.(woff|woff2|ttf|eot|otf|css|js|jpg|jpeg|png|gif|ico)$ {
+        set $cors_origin "*";
+        if ($http_origin ~* ^https?:\/\/(${WP_HOME}|.*${SUBDOMAIN_SUFFIX}\.${WP_HOME})(:[0-9]+)?$) {
+            set $cors_origin $http_origin;
+        }
+
+        # Main headers for CORS
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Origin, Content-Type, Accept, Authorization" always;
+
+    }
+
+}

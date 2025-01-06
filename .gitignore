@@ -1,5 +1,6 @@
 # System
 .DS_Store
+*Zone.Identifier
 
 # Application
 web/app/plugins/*
@@ -18,11 +19,16 @@ web/.htaccess
 
 # Logs
 *.log
+*.log.*
+!logrotate.conf
 
 # Dotenv
 .env
 .env.*
 !.env.example
+
+# NGINX
+nginx/default.conf
 
 # Composer
 /vendor
@@ -37,20 +43,30 @@ mysql/_grants.sql
 
 # Cache
 **/cache
+web/app/wp-cloudflare-super-page-cache/**
+web/app/advanced-cache.php
 
 # Database dumps
 mysql/*.sql
+web/app/themes/.gitkeep
 
-# Laravel Generated
-**/main.js.LICENSE.txt
-**/*.css.map
-**/*.js.map
-**/node_modules/
-**/public/js/
-**/public/css/
-**/npm-debug.log*
-**/yarn-debug.log*
-**/yarn-error.log*
+# Build Artifacts (Exclude Generated Files)
+web/app/themes/**/public/*.css.map
+web/app/themes/**/public/*.js.map
+web/app/themes/**/public/mix-manifest.json
 
-# Source-controlled plugins
+# Exclude Node.js and Frontend Build Tools
+web/app/themes/**/node_modules/
+web/app/themes/**/npm-debug.log*
+web/app/themes/**/yarn-debug.log*
+web/app/themes/**/yarn-error.log*
+
+# Exclude other frontend build directories
+web/app/themes/**/public/js/*
+web/app/themes/**/public/css/*
+
+# Source-controlled plugins with customizationss
+!url-rewriter
+
+# Source-controlled plugins that can't be installed with composer
 !example-plugin

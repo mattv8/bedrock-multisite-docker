@@ -57,6 +57,16 @@ cp .env.example .env
 ```
 
 ### 3. Build and Start the Docker Containers
+The `.vscode` directory contains two helper scripts to simplify development:
+
+- **start.sh**: Starts the Docker development environment, including setting up port forwarding for specified services. This ensures that Docker containers running inside WSL can communicate with services on the Windows host, if neecessary. This can be run with the shortcut Ctrl+Shift+B.
+- **install.sh**: Installs WordPress dependencies and sets up the environment for the first time. You can execute it manually or via the "Install Dependencies" VSCode task.
+
+To use these tasks in VSCode:
+1. Open the VSCode Command Palette (Ctrl+Shift+P or Cmd+Shift+P).
+2. Search for "Tasks: Run Task."
+3. Select the task you want to run (e.g., "Start Bedrock Server" or "Install Dependencies").
+
 Launch the Docker containers with Docker Compose:
 
 ```bash
@@ -70,6 +80,29 @@ Once the containers are running, you can access your WordPress site by navigatin
 
 To manage your database, use phpMyAdmin, accessible at [http://localhost:${PHPMA_PORT}](http://localhost:82).
 
+## Managing Uploads with MinIO
+
+MinIO is an S3-compatible object storage solution included in this setup to handle media uploads and other assets in a scalable way. It integrates seamlessly with your `.env` file and the `Rewrite.php` mu-plugin to rewrite file URLs for compatibility with MinIO.
+
+#### Why Use MinIO?
+- **Local Development**: Test S3-compatible storage features locally without requiring a cloud provider.
+- **Scalability**: Seamlessly transition to actual S3-compatible services in staging or production.
+- **Multisite Support**: Easily manage media files across multiple sites.
+- **Dynamic URL Rewriting**: The `Rewrite.php` mu-plugin ensures all uploaded files' URLs are dynamically rewritten to use the MinIO bucket URL, leveraging the `rewriteURL($url)` function for seamless integration.
+
+#### How to Use MinIO:
+1. **Set Up MinIO**:
+   - Access the MinIO web interface at [http://localhost:9001](http://localhost:9001).
+   - Log in using the credentials defined in your `.env` file (e.g., `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`).
+   - Create a bucket for your WordPress site (e.g., `wordpress-media`).
+
+2. **Configure Environment Variables**:
+   - Add `MINIO_URL` (e.g., `http://localhost:9000`) and `MINIO_BUCKET` (e.g., `wordpress-media`) to your `.env` file.
+
+3. **Coming Soon**:
+  - Upload management direclty to MinIO through Wordpress...
+
+> **Tip:** The dynamic URL rewriting ensures compatibility with both local and production setups. Adjust the `MINIO_URL` in `.env` as needed for staging or production environments.
 
 ## Migrating vanilla Wordpress to Bedrock WP
 See [mysql/README.md](mysql/README.md)

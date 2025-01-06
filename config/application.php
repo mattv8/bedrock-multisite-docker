@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This base configuration file is customized for the mattv8/bedrock-multisite-docker
  * environment. While it follows Roots/Bedrock conventions, there are key changes here
@@ -6,10 +7,6 @@
  *
  * Environment-specific overrides still go in their respective config/environments/{{WP_ENV}}.php
  * files, and the production configuration should deviate as little as possible from this file.
- *
- * Note: This version of `application.php` differs from the original Bedrock file.
- * Refer to a diff comparison between this file and the standard Bedrock `application.php`
- * to visualize the modifications.
  */
 
 use Roots\WPConfig\Config;
@@ -65,15 +62,39 @@ if (!env('WP_ENVIRONMENT_TYPE') && in_array(WP_ENV, ['production', 'staging', 'd
 }
 
 /**
- * URLs
+ * URLs and Domain Configuration
  */
-
 $nginx_port = env('NGINX_PORT') ? ':' . env('NGINX_PORT') : '';
 $subdomain_suffix = env('SUBDOMAIN_SUFFIX');
 
 Config::define('NGINX_PORT', env('NGINX_PORT') ?: '');
+// Configure production domain
+$production_domain = env('WP_PRODUCTION_DOMAIN');
+
+// Default DOMAIN_CURRENT_SITE if unset, adjusted for environment
+$domain_current_site = env('DOMAIN_CURRENT_SITE') ?: 'localhost';
+if (WP_ENV === 'production') {
+    $domain_current_site = $production_domain ?: $domain_current_site;
+}
+
+// Add subdomain suffix dynamically in non-production environments
+if (WP_ENV !== 'production' && $subdomain_suffix) {
+    $domain_parts = explode('.', $domain_current_site, 2);
+    if (count($domain_parts) === 2) {
+        $domain_current_site = $domain_parts[0] . $subdomain_suffix . '.' . $domain_parts[1];
+    }
+}
+
 Config::define('WP_HOME', env('WP_HOME') . $nginx_port);
 Config::define('WP_SITEURL', env('WP_HOME') . $nginx_port . '/wp');
+Config::define('DOMAIN_CURRENT_SITE', $domain_current_site);
+Config::define('WP_PRODUCTION_DOMAIN', $production_domain);
+Config::define('SUBDOMAIN_SUFFIX', $subdomain_suffix);
+
+// Validate and log errors for domain configuration
+if (!filter_var($domain_current_site, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
+    error_log("Invalid DOMAIN_CURRENT_SITE: $domain_current_site");
+}
 
 /**
  * Custom Content Directory
@@ -149,8 +170,10 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
     $_SERVER['HTTPS'] = 'on';
 }
 
+/**
+ * Environment-specific Configurations
+ */
 $env_config = __DIR__ . '/environments/' . WP_ENV . '.php';
-
 if (file_exists($env_config)) {
     require_once $env_config;
 }
@@ -158,32 +181,84 @@ if (file_exists($env_config)) {
 /**
  * Multisite Network
  */
-// Enable multisite network setup in the admin (use only during setup)
 Config::define('WP_ALLOW_MULTISITE', env('WP_ALLOW_MULTISITE') ?: false);
-Config::define('MULTISITE', env('MULTISITE') ?: false);// Activate the multisite network
-Config::define('SUBDOMAIN_INSTALL', env('SUBDOMAIN_INSTALL') ?: false); // Set to true if using subdomains
+Config::define('MULTISITE', env('MULTISITE') ?: false);
+Config::define('SUBDOMAIN_INSTALL', env('SUBDOMAIN_INSTALL') ?: false);
 Config::define('PATH_CURRENT_SITE', env('PATH_CURRENT_SITE') ?: '/');
 Config::define('SITE_ID_CURRENT_SITE', env('SITE_ID_CURRENT_SITE') ?: 1);
 Config::define('BLOG_ID_CURRENT_SITE', env('BLOG_ID_CURRENT_SITE') ?: 1);
 Config::define('SUNRISE', env('SUNRISE') ?: false);
-Config::define('SUBDOMAIN_SUFFIX', env('SUBDOMAIN_SUFFIX') ?: false);
 
-// Extract the subdomain if it differs from the base domain
-if (Config::get('SUBDOMAIN_INSTALL')) {
-    $domain = env('DOMAIN_CURRENT_SITE');
-    if (strpos($domain, '://') === false) {
-        $domain = 'http://' . $domain; // Prepend a default scheme
-    }
+// Offload uploads to minio server, if set
+Config::define('MINIO_URL', env('MINIO_URL') ?: false);
+Config::define('MINIO_BUCKET', env('MINIO_BUCKET') ?: false);
 
-    $wp_base_domain = get_base_domain($domain);
+if (in_array(WP_ENV, ['development', 'staging'])) {
+    // Log the last loaded PHP file
+    register_shutdown_function(function () {
+        $lastError = error_get_last();
 
-    if ($wp_base_domain) {
-        Config::define('DOMAIN_CURRENT_SITE', $wp_base_domain . Config::get('SUBDOMAIN_SUFFIX'));
-    } else {
-        error_log("Invalid DOMAIN_CURRENT_SITE: $domain");
-    }
+        // Initialize last file and stack trace variables
+        $stackTrace = [];
+        $basePath = '/var/www/';
+
+        // Check if an error occurred
+        if ($lastError) {
+            $lastFile = $lastError['file'] ?? false; // File from error
+            if ($lastFile) {
+                $lastFile = str_replace($basePath, '', $lastFile); // Make relative
+                $stackTrace[] = sprintf(
+                    '%s:%d %s',
+                    $lastFile,
+                    $lastError['line'] ?? 0,
+                    '[shutdown error]'
+                );
+            }
+        } else {
+            // Use backtrace if no error
+            $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+            foreach ($backtrace as $trace) {
+                $stackTrace[] = sprintf(
+                    '%s:%d %s%s%s',
+                    isset($trace['file']) ? str_replace($basePath, '', $trace['file']) : '[internal function]',
+                    $trace['line'] ?? 0,
+                    $trace['class'] ?? '',
+                    $trace['type'] ?? '',
+                    $trace['function'] ?? ''
+                );
+            }
+        }
+
+        $logMessage = '';
+
+        // Format the log message
+        if ($lastError) {
+            $logMessage = sprintf(
+                "[%s] PHP Error: [%d] %s in %s on line %d\n",
+                date('d-M-Y H:i:s e'),
+                $lastError['type'],
+                $lastError['message'],
+                $lastError['file'] ?? 'Unknown file',
+                $lastError['line'] ?? 0
+            );
+        }
+
+        if (!empty($stackTrace)) {
+            $logMessage .= "[Shutdown trace]\n" . implode("\n", $stackTrace) . "\n";
+        }
+
+        // Write the message to the debug log
+        if (!empty($lastError) && !empty($stackTrace)) {
+            error_log($logMessage, 3, Config::get('WP_DEBUG_LOG'));
+        } else {
+            error_log("[Done]\n", 3, Config::get('WP_DEBUG_LOG'));
+        }
+    });
 }
 
+/**
+ * Apply Configuration
+ */
 Config::apply();
 
 /**
@@ -191,48 +266,4 @@ Config::apply();
  */
 if (!defined('ABSPATH')) {
     define('ABSPATH', $webroot_dir . '/wp/');
-}
-
-
-/**
- * Extracts the base domain from a given URL, stripping subdomains if applicable,
- * and appends the port unless it is 80 (HTTP) or 443 (HTTPS).
- *
- * This function handles multi-level domains (e.g., example.co.uk) and preserves
- * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
- *
- * @param string $url The URL from which to extract the base domain and port.
- * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
- */
-function get_base_domain($url) {
-    $parsed_url = parse_url($url);
-    if (!isset($parsed_url['host'])) {
-        error_log("Invalid URL: $url");
-        return null;
-    }
-
-    $host = $parsed_url['host'];
-    $port = isset($parsed_url['port']) && !in_array($parsed_url['port'], [80, 443])
-        ? ':' . $parsed_url['port']
-        : '';
-
-    // Split the host into parts
-    $host_parts = explode('.', $host);
-
-    // Determine the base domain based on common patterns
-    $num_parts = count($host_parts);
-    if (strpos($host,'localhost')) {
-        $base_domain = 'localhost';
-    } elseif ($num_parts > 2) {
-        // Handle domains like example.co.uk
-        $base_domain = implode('.', array_slice($host_parts, -2));
-        if (in_array($host_parts[$num_parts - 2], ['co', 'gov', 'ac'])) {
-            $base_domain = implode('.', array_slice($host_parts, -3));
-        }
-    } else {
-        // For domains like example.com
-        $base_domain = $host;
-    }
-
-    return $base_domain . $port;
 }

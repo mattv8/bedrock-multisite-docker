@@ -1,11 +1,20 @@
 services:
   nginx:
-    image: nginx:latest
-    container_name: nginx
+    container_name: bedrock-nginx
+    build:
+      context: ./nginx
+      dockerfile: ../dockerfile/nginx.Dockerfile
+      args:
+        WP_HOME: ${WP_HOME}
+        SUBDOMAIN_SUFFIX: ${SUBDOMAIN_SUFFIX}
+        LOG_ROTATE_INTERVAL: ${LOG_ROTATE_INTERVAL}
+        LOG_ROTATE_COUNT: ${LOG_ROTATE_COUNT}
+        LOG_ROTATE_COMPRESS: ${LOG_ROTATE_COMPRESS}
+    restart: ${RESTART_POLICY:-unless-stopped}
     ports:
       - "${NGINX_PORT}:80"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx:/etc/nginx/conf.d
       - ./web:/var/www/web
       - ./config:/var/www/config
       - ./vendor:/var/www/vendor
@@ -17,10 +26,14 @@ services:
 
   php-fpm:
     image: php:8.1-fpm
-    container_name: php-fpm
+    container_name: bedrock-php-fpm
+    restart: ${RESTART_POLICY:-unless-stopped}
     build:
       context: ./dockerfile
-      dockerfile: php-fpm.Dockerfile
+      dockerfile: php.Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     volumes:
       - ./.env:/var/www/.env
       - ./web:/var/www/web
@@ -28,27 +41,23 @@ services:
       - ./vendor:/var/www/vendor
       - ./logs:/var/www/log
       - ./wp-cli.yml:/var/www/wp-cli.yml
+      - ./config/php.ini:/usr/local/etc/php/conf.d/php.ini
     depends_on:
       - mariadb
     networks:
       - app-network
+    extra_hosts:
+      - wsl-host:${WSL_HOST:-127.0.0.1}
 
   mariadb:
     image: mariadb
-    container_name: mariadb
-    restart: always
+    container_name: bedrock-mariadb
+    restart: ${RESTART_POLICY:-unless-stopped}
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
-    build:
-      context: ./dockerfile
-      dockerfile: mysql.Dockerfile
-      args:
-        DB_NAME: ${DB_NAME}
-        DB_USER: ${DB_USER}
-        DB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - ./mysql:/docker-entrypoint-initdb.d  # SQL files to be processed on build
       - db_data:/var/lib/mysql  # Persistent volume for MariaDB data
@@ -57,14 +66,15 @@ services:
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: phpmyadmin
+    container_name: bedrock-phpmyadmin
+    restart: ${RESTART_POLICY:-unless-stopped}
     ports:
       - "${PHPMA_PORT}:80"
     environment:
       PMA_HOST: mariadb
       PMA_PORT: 3306
-      ${PHPMA_LOGIN:+PMA_USER}: ${DB_USER}
-      ${PHPMA_LOGIN:+PMA_PASSWORD}: ${DB_PASSWORD}
+      PMA_USER: ${DB_USER} # Remove these to password protect PMA
+      PMA_PASSWORD: ${DB_PASSWORD} # Remove these to password protect PMA
     depends_on:
       - mariadb
     networks:

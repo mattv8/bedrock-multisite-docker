@@ -191,9 +191,9 @@ check_bedrock() {
         # Ensure Composer does not prompt for root user confirmation
         export COMPOSER_ALLOW_SUPERUSER=1
 
-        # Run composer install to detect missing extensions
-        echo -e "${BLUE}Running composer install to detect missing extensions...${NC}"
-        composer_output=$(composer install 2>&1 || true)
+        # Run composer install and capture output
+        echo -e "${BLUE}Running composer install...${NC}"
+        composer_output=$(sudo composer install 2>&1 || true)
 
         # Check for missing PHP extensions
         if echo "$composer_output" | grep -q "ext-"; then
@@ -207,7 +207,7 @@ check_bedrock() {
 
             # Retry composer install after installing extensions
             echo -e "${BLUE}Re-running composer install after installing extensions...${NC}"
-            composer install || {
+            sudo composer install || {
                 echo -e "${RED}Composer install failed after installing extensions. Please check manually.${NC}"
                 exit 1
             }
@@ -216,8 +216,49 @@ check_bedrock() {
             exit 1
         fi
 
-        echo -e "${GREEN}Composer install completed successfully.${NC}"
+        # Check if the WordPress directory exists after running composer install
+        if [ -f "$bedrock_dir/web/wp/index.php" ]; then
+            echo -e "${GREEN}Composer install completed successfully, and WordPress directory is ready.${NC}"
+        else
+            echo -e "${RED}Failed to set up Bedrock WordPress. Please check the logs and try again.${NC}"
+            exit 1
+        fi
+
+        # Re-own necessary directories
+        echo -e "${BLUE}Adjusting ownership for necessary directories...${NC}"
+        for dir in "$bedrock_dir/vendor" "$bedrock_dir/web"; do
+            if [ -d "$dir" ]; then
+                echo -e "${YELLOW}Re-owning $dir to UID:GID=${UID}:${GID}...${NC}"
+                sudo chown -R "${UID}:${GID}" "$dir" && echo -e "${GREEN}Ownership updated for $dir.${NC}"
+            fi
+        done
+
+    else
+        echo -e "${GREEN}Bedrock WordPress is already set up.${NC}"
     fi
+}
+
+# Function to generate dynamic grants.sql and prepare SQL dumps for MariaDB
+prepare_mariadb_sql() {
+    local mysql_dir="./mysql"
+
+    # Check if ./mysql directory exists
+    if [ ! -d "$mysql_dir" ]; then
+        echo -e "${RED}Directory $mysql_dir does not exist. Creating it...${NC}"
+        mkdir -p "$mysql_dir"
+    fi
+
+    # Create grants.sql with replaced environment variables
+    cat > "$mysql_dir/_grants.sql" <<EOF
+CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;
+CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
+FLUSH PRIVILEGES;
+EOF
+    echo -e "${BLUE}Generated dynamic grants.sql at $mysql_dir/_grants.sql.${NC}"
+
+    # Set permissions for the SQL files
+    chmod 644 "$mysql_dir"/*.sql
 }
 
 # Run checks
@@ -228,7 +269,8 @@ check_docker_compose_installed
 install_php_composer
 check_node_installed
 check_bedrock
+prepare_mariadb_sql
 
 # Build and start Docker containers
 echo -e "${BLUE}Building Docker containers...${NC}"
-docker compose build
+sudo docker compose build
