@@ -50,7 +50,7 @@ class Rewriter
 
         // Production Domain
         // Load the production domain from the environment
-        $this->wp_production_domain = Config::get('WP_PRODUCTION_DOMAIN', ''); // e.g. hammerton.com
+        $this->wp_production_domain = Config::get('WP_PRODUCTION_DOMAIN', ''); // e.g. example.com
         if (!$this->wp_production_domain) {
             error_log("WP_PRODUCTION_DOMAIN is not set. Please check your .env file.");
         }
@@ -109,23 +109,6 @@ class Rewriter
     {
         global $current_blog;
 
-        // Fallback to default uploads directory if MinIO configuration is not defined
-        if (empty($this->minio_url) || empty($this->minio_bucket)) {
-            // If $url is an array (e.g., srcset), return as is
-            if (is_array($url)) {
-                return $url;
-            }
-
-            // Ensure the URL is valid and points to the uploads directory
-            $parsed_url = parse_url($url);
-            if (isset($parsed_url['path']) && strpos($parsed_url['path'], '/app/uploads/') !== false) {
-                return $url;
-            }
-
-            // Return unaltered URL if no valid MinIO config and not an upload
-            return $url;
-        }
-
         // Check if $url is an array (for srcset), and apply rewriting to each entry.
         if (is_array($url)) {
             foreach ($url as $key => $single_url) {
@@ -154,47 +137,42 @@ class Rewriter
             }
         }
 
-        // Check for missing port
-        if (
-            strpos($parsed_url['host'], $this->wp_base_domain['without_port']) !== false &&
-            (!isset($parsed_url['port']) || $parsed_url['host'] === $this->wp_base_domain['without_port'])
-        ) {
+        $base_url = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
+        $path = $parsed_url['path'] ?? '';
+        $query_string = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
 
+        // Rewrite URL with missing port
+        if (
+            ($parsed_url['host'] == $this->wp_base_domain['without_port'] ||
+                strpos($parsed_url['host'], $this->wp_base_domain['without_port'])) &&
+            !isset($parsed_url['port'])
+        ) {
             // Regex pattern to match the production domain and optional subdomain
-            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_base_domain['without_port'], '/') . "(?::[0-9]+)?(\/.*)?/";
+            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_base_domain['without_port'], '/') . "(?:\:[0-9]+)?(\/.*)?/";
 
             // Match the subdomain and path using preg_match
             if (preg_match($pattern, $url, $matches)) {
-                $subdomain = $matches[1] ?? ''; // Capture the subdomain if present
-
-                // If no subdomain is defined, default to DOMAIN_CURRENT_SITE's subdomain
-                if (empty($subdomain)) {
-                    $default_site_host = str_replace($this->wp_base_domain['without_port'], '', $this->wp_default_site);
-                    $subdomain = trim($default_site_host, '.'); // Remove leading/trailing dots
-                }
+                $subdomain = $matches[1] ?? str_replace($this->wp_base_domain['without_port'], '', $this->wp_default_site);
+                $subdomain = trim($subdomain, '.'); // Remove leading/trailing dots
 
                 // Construct the rewritten URL
                 $rewrittenURL = $this->scheme . '://' . $subdomain . '.' . $this->wp_base_domain['with_port'] . ($matches[2] ?? '');
 
                 // Cache the rewritten URL
-                $this->rewrite_cache[$url] = $rewrittenURL . ($query_string ?? '');
+                $this->rewrite_cache[$url] = $rewrittenURL . $query_string;
                 error_log("Rewrote URL with missing port from $url to $rewrittenURL");
 
                 return $this->rewrite_cache[$url];
             }
         }
 
-        $base_url = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
-        $path = $parsed_url['path'] ?? '';
-        $query_string = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
-
-        // Skip if already rewritten to MinIO
-        if (strpos($base_url, $this->minio_url) !== false) {
-            return $url;
-        }
-
-        // Rewrite if in the uploads directory
+        // Rewrite if in the uploads directory and valid MinIO URL
         if ($path && strpos($path, '/app/uploads/') !== false) {
+            if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($base_url, $this->minio_url) !== false) {
+                $this->rewrite_cache[$url] = $url;
+                return $this->rewrite_cache[$url];
+            }
+
             $uploads_path = strpos($path, '/app/uploads/sites/') !== false
                 ? "/sites/{$current_blog->blog_id}"
                 : '';
@@ -210,7 +188,7 @@ class Rewriter
             error_log("Rewrite media URL from $url to $rewrittenURL");
 
             return $this->rewrite_cache[$url];
-        } elseif (!strpos($url, $this->subdomain_suffix . "." . $this->wp_base_domain['with_port'])) {
+        } elseif (!strpos($url, $this->wp_base_domain['with_port']) && !strpos($url, $this->subdomain_suffix . "." . $this->wp_base_domain['with_port'])) {
 
             // Replace only URLs containing the production domain
             $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_production_domain, '/') . "(?::[0-9]+)?(\/.*)?/";
