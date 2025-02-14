@@ -271,6 +271,10 @@ check_node_installed
 check_bedrock
 prepare_mariadb_sql
 
+# Composer
+echo -e "${BLUE}Composer installing...${NC}"
+composer install
+
 # Build and start Docker containers
 echo -e "${BLUE}Building Docker containers...${NC}"
 sudo docker compose build
