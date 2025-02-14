@@ -17,6 +17,10 @@ web/app/cache/*
 web/wp
 web/.htaccess
 
+# Roots WordPress
+web/index.php
+web/wp-config.php
+
 # Logs
 *.log
 *.log.*
@@ -69,4 +73,5 @@ web/app/themes/**/public/css/*
 !url-rewriter
 
 # Source-controlled plugins that can't be installed with composer
+# These are plugins we didn't write or modify the code for
 !example-plugin

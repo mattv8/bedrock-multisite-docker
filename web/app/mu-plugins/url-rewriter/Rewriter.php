@@ -2,14 +2,16 @@
 
 /**
  * Class URLFixer
+ *
  * @package mattv8\URLFixer
- * @author mattv8
- * @link https://github.com/mattv8/multisite-url-fixer
+ * @author  mattv8
+ * @link    https://github.com/mattv8/multisite-url-fixer
  */
 
 namespace URL;
 
 use Roots\WPConfig\Config;
+
 use function Env\env;
 
 class Rewriter
@@ -23,12 +25,11 @@ class Rewriter
     protected $wp_base_domain;
     protected $wp_default_site;
     protected $scheme;
-    protected $rewrite_overrides = []; // Add a property for overrides
     protected $port;
     protected $wp_production_domain;
+    protected $log_rewrites;
 
-    public function __construct()
-    {
+    public function __construct() {
         // Uploads Directory
         // Fetch uploads directory base URL once to avoid recursion issues
         $uploads_dir = wp_get_upload_dir();
@@ -55,26 +56,16 @@ class Rewriter
             error_log("WP_PRODUCTION_DOMAIN is not set. Please check your .env file.");
         }
 
+        // Whether to log rewrite information
+        $this->log_rewrites = Config::get('LOG_REWRITES') ?: false;
+
         $this->wp_default_site = Config::get('DOMAIN_CURRENT_SITE', '');
-
-        // Rewrite Overrides
-        $this->rewrite_overrides = $this->loadOverrides();
-    }
-
-    private function loadOverrides(): array
-    {
-        $overrides_file = dirname(__DIR__, 1) . '/overrides.php';
-        if (file_exists($overrides_file)) {
-            return include $overrides_file;
-        }
-        return []; // Return an empty array if the file does not exist
     }
 
     /**
      * Add filters to rewrite URLs, including multisite domain filters.
      */
-    public function addFilters()
-    {
+    public function addFilters() {
         if (is_multisite()) {
             add_filter('option_home', [$this, 'rewriteSiteURL']);
             add_filter('option_siteurl', [$this, 'rewriteSiteURL']);
@@ -82,10 +73,10 @@ class Rewriter
             add_filter('network_admin_url', [$this, 'rewriteSiteURL']);
         }
 
-        // Media-specific filters
-        add_filter('wp_get_attachment_url', [$this, 'rewriteSiteURL']);
-        add_filter('wp_calculate_image_srcset', [$this, 'rewriteSiteURL']);
-        add_filter('login_redirect', [$this, 'login_redirect'], 10, 2);
+        // Media-specific filters        
+        add_filter('upload_dir', [$this, 'rewriteSiteURL']);
+        add_filter('login_redirect', [$this, 'rewriteSiteURL']);
+        add_filter('wp_redirect', [$this, 'rewriteSiteURL']);
 
         // Uncomment below lines if filters for scripts, styles, and other items are needed
         add_filter('script_loader_src', [$this, 'rewriteSiteURL']);
@@ -94,19 +85,10 @@ class Rewriter
         add_filter('plugins_url', [$this, 'rewriteSiteURL']);
     }
 
-    function login_redirect($redirect_to, $requested_redirect_to)
-    {
-        error_log("Redirecting to: $redirect_to");
-        // Process normally if the URL does not match the production domain
-        return $this->rewriteURL($redirect_to);
-    }
-
-
     /**
      * Core function to rewrite URLs for media and site content.
      */
-    protected function rewriteURL($url)
-    {
+    protected function rewriteURL($url) {
         global $current_blog;
 
         // Check if $url is an array (for srcset), and apply rewriting to each entry.
@@ -122,53 +104,23 @@ class Rewriter
             return $this->rewrite_cache[$url];
         }
 
-        // Check if valid URL
         $parsed_url = parse_url($url);
+
+        // Gut-check if this is a valid URL before proceeding
         if (!isset($parsed_url['host']) || !isset($parsed_url['scheme'])) {
+            $this->rewrite_cache[$url] = $url;
             return $url;
         }
 
-        // Check overrides
-        foreach ($this->rewrite_overrides as $override) {
-            if ($this->matchOverride($override, $url)) {
-                error_log("URL $url was excluded from rewrite (rule: $override)");
-                $this->rewrite_cache[$url] = $url; // Cache the original URL
-                return $url; // Return the original URL
-            }
-        }
-
-        $base_url = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
+        // Extract URL components to be used for later processing
+        $host = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
+        $scheme = $parsed_url['scheme'] ?? 'http';
         $path = $parsed_url['path'] ?? '';
-        $query_string = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
+        $query = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
 
-        // Rewrite URL with missing port
-        if (
-            ($parsed_url['host'] == $this->wp_base_domain['without_port'] ||
-                strpos($parsed_url['host'], $this->wp_base_domain['without_port'])) &&
-            !isset($parsed_url['port'])
-        ) {
-            // Regex pattern to match the production domain and optional subdomain
-            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_base_domain['without_port'], '/') . "(?:\:[0-9]+)?(\/.*)?/";
-
-            // Match the subdomain and path using preg_match
-            if (preg_match($pattern, $url, $matches)) {
-                $subdomain = $matches[1] ?? str_replace($this->wp_base_domain['without_port'], '', $this->wp_default_site);
-                $subdomain = trim($subdomain, '.'); // Remove leading/trailing dots
-
-                // Construct the rewritten URL
-                $rewrittenURL = $this->scheme . '://' . $subdomain . '.' . $this->wp_base_domain['with_port'] . ($matches[2] ?? '');
-
-                // Cache the rewritten URL
-                $this->rewrite_cache[$url] = $rewrittenURL . $query_string;
-                error_log("Rewrote URL with missing port from $url to $rewrittenURL");
-
-                return $this->rewrite_cache[$url];
-            }
-        }
-
-        // Rewrite if in the uploads directory and valid MinIO URL
+        // Rewrite any media URL's to MinIO
         if ($path && strpos($path, '/app/uploads/') !== false) {
-            if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($base_url, $this->minio_url) !== false) {
+            if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($host, $this->minio_url) !== false) {
                 $this->rewrite_cache[$url] = $url;
                 return $this->rewrite_cache[$url];
             }
@@ -183,74 +135,66 @@ class Rewriter
                 $url
             );
 
-            // Cache the rewritten URL
-            $this->rewrite_cache[$url] = $rewrittenURL . $query_string;
-            error_log("Rewrite media URL from $url to $rewrittenURL");
+            $this->rewrite_cache[$url] = $rewrittenURL . $query;
+            if ($this->log_rewrites) {
+                error_log("Rewrite media URL from $url to $rewrittenURL");
+            }
 
-            return $this->rewrite_cache[$url];
-        } elseif (!strpos($url, $this->wp_base_domain['with_port']) && !strpos($url, $this->subdomain_suffix . "." . $this->wp_base_domain['with_port'])) {
-
-            // Replace only URLs containing the production domain
-            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_production_domain, '/') . "(?::[0-9]+)?(\/.*)?/";
-            $replacement = $this->scheme . '://${1}' . $this->subdomain_suffix . '.' . $this->wp_base_domain['with_port'] . '${2}';
-            $rewrittenURL = preg_replace($pattern, $replacement, $url);
-            $this->rewrite_cache[$url] = $rewrittenURL . $query_string;
-            error_log("Rewrite specific URL from $url to $rewrittenURL");
             return $this->rewrite_cache[$url];
         }
 
-        // If already pointing to localhost without MinIO
+        // Ensure that home URL does not contain the /wp subdirectory before moving on
+        if ($path && strpos($path, '/wp/') !== false) {
+            $url = str_replace('/wp/', '/', $url);
+        }
+
+        // Check if the base domain and subdomain suffix are present in the URL
+        $base_domain_present_in_url = strpos($url, $this->wp_base_domain['with_port']) !== false;
+        $suffix_present_in_url = strpos($url, $this->subdomain_suffix) !== false;
+
+        // Basic check that the URL qualifies as being rewritable
+        $rewriteable_url = get_base_domain($url)['with_port'] == $this->wp_production_domain ||
+            get_base_domain($url)['with_port'] == $this->wp_base_domain['with_port'] ||
+            get_base_domain($url)['with_port'] == $this->wp_base_domain['without_port'];
+
+        // Determine if the port is missing and needs to be added
+        $missing_port = strpos($url, $this->wp_base_domain['with_port']) == false &&
+            !isset($parsed_url['port']) &&
+            isset($this->port) &&
+            ($this->port != 80 || $this->port != 443);
+
+        if (!$base_domain_present_in_url || !$suffix_present_in_url) {
+
+            // If the port is missing, append it to the URL
+            $url_with_port = ($missing_port && $rewriteable_url) ? "$scheme://{$host}:{$this->port}{$path}" : $url;
+
+            // If the suffix is missing, prepend it before the base domain
+            $suffix = (!$suffix_present_in_url) ? $this->subdomain_suffix . '.' : '';
+
+            // Rewrite the URL by ensuring the correct subdomain and port formatting
+            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_production_domain, '/') . "(?::[0-9]+)?(\/.*)?/";
+            $replacement = $this->scheme . '://${1}' . $suffix . $this->wp_base_domain['with_port'] . '${2}';
+
+            // Apply the rewrite and cache the new URL
+            $rewrittenURL = preg_replace($pattern, $replacement, $url_with_port);
+            $this->rewrite_cache[$url] = "{$rewrittenURL}";
+
+            if ($this->log_rewrites) {
+                error_log("Rewrite specific URL from $url to $rewrittenURL");
+            }
+            
+            return $this->rewrite_cache[$url];
+        }
+
+        // Fallback if no other conditions are met
         $this->rewrite_cache[$url] = $url;
         return $url;
     }
 
     /**
-     * Check if the given URL matches an override pattern.
-     *
-     * @param string $override
-     * @param string $url
-     * @return bool
-     */
-    private function matchOverride($override, $url): bool
-    {
-        // Ensure the URL has a scheme
-        $parsed_url = parse_url($url);
-        if (!isset($parsed_url['scheme'])) {
-            $url = 'http://' . ltrim($url, '/');
-        }
-
-        // Handle wildcard patterns
-        if (strpos($override, '*') !== false) {
-            // If override does not include a scheme, add a scheme to match dynamically
-            if (!preg_match('/^https?:\/\//', $override)) {
-                $override = 'https?://' . ltrim($override, '/');
-            }
-            $escaped_override = preg_quote($override, '/');
-
-            // Restore the regex characters like `?` that were escaped
-            $escaped_override = str_replace(['\?', '\*'], ['?', '.*'], $escaped_override);
-            $pattern = '/^' . $escaped_override . '$/';
-            return (bool) preg_match($pattern, $url);
-        }
-
-        // Handle regex patterns explicitly (starting with `/`)
-        if (strpos($override, '/') === 0) {
-            return (bool) preg_match($override, $url);
-        }
-
-        // Handle exact matches
-        if (!preg_match('/^https?:\/\//', $override)) {
-            // Add default scheme for exact match if missing
-            $override = 'http://' . ltrim($override, '/');
-        }
-        return $override === $url;
-    }
-
-    /**
      * Rewrites the site URL, applying only necessary transformations.
      */
-    public function rewriteSiteURL($url)
-    {
+    public function rewriteSiteURL($url) {
         return $this->rewriteURL($url);
     }
 }
@@ -263,11 +207,10 @@ class Rewriter
  * This function handles multi-level domains (e.g., example.co.uk) and preserves
  * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
  *
- * @param string $url The URL from which to extract the base domain and port.
+ * @param  string $url The URL from which to extract the base domain and port.
  * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
  */
-function get_base_domain($url)
-{
+function get_base_domain(string $url) {
     $parsed_url = parse_url($url);
     if (!isset($parsed_url['host'])) {
         error_log("Invalid URL: $url");
@@ -281,6 +224,7 @@ function get_base_domain($url)
 
     // Split the host into parts
     $host_parts = explode('.', $host);
+
 
     // Determine the base domain based on common patterns
     $num_parts = count($host_parts);

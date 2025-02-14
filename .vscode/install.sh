@@ -11,11 +11,11 @@ env_dir=. # .env directory
 docker_dir=$env_dir # docker-compose.yml directory
 bedrock_dir=$env_dir # docker-compose.yml directory
 themes_dir="web/app/themes" # Themes directory
-export UID=$(id -u)
-export GID=$(id -g)
+export USER_ID=$(id -u)
+export GROUP_ID=$(id -g)
 
 echo -e "${Yellow}Current directory: $(pwd)${NC}"
-echo -e "${Yellow}Using UID=${UID} and GID=${GID} for Docker containers.${NC}"
+echo -e "${Yellow}Using USER_ID=${USER_ID} and GROUP_ID=${GROUP_ID} for Docker containers.${NC}"
 
 # Check if .env file exists
 check_dot_env() {
@@ -133,10 +133,10 @@ check_node_installed() {
         echo -e "${YELLOW}Node.js is not installed. Setting up Node.js with NVM...${NC}"
 
         # Check if NVM is installed
-        if [ ! -d "$HOME/.nvm" ] && [ "$EUID" -ne 0 ]; then
+        if [ ! -d "$HOME/.nvm" ] && [ "$USER_ID" -ne 0 ]; then
             echo -e "${YELLOW}NVM is not installed for the current user. Installing NVM...${NC}"
             curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
-        elif [ "$EUID" -eq 0 ]; then
+        elif [ "$USER_ID" -eq 0 ]; then
             echo -e "${YELLOW}Running as root. Ensuring NVM is set up for root...${NC}"
             export NVM_DIR="/root/.nvm"
             if [ ! -d "$NVM_DIR" ]; then
@@ -146,7 +146,7 @@ check_node_installed() {
         fi
 
         # Ensure NVM_DIR points to the correct directory
-        if [ "$EUID" -ne 0 ]; then
+        if [ "$USER_ID" -ne 0 ]; then
             export NVM_DIR="$HOME/.nvm"
         fi
 
@@ -185,7 +185,7 @@ check_node_installed() {
 
 # Check if Bedrock is set up
 check_bedrock() {
-    if [ ! -f "$bedrock_dir/web/wp/index.php" ]; then
+    if [ -f "$bedrock_dir/web/index.php" ] && [ -n "$(ls -A "$bedrock_dir/web/wp")" ]; then
         echo -e "${YELLOW}Setting up Bedrock WordPress...${NC}"
 
         # Ensure Composer does not prompt for root user confirmation
@@ -228,8 +228,8 @@ check_bedrock() {
         echo -e "${BLUE}Adjusting ownership for necessary directories...${NC}"
         for dir in "$bedrock_dir/vendor" "$bedrock_dir/web"; do
             if [ -d "$dir" ]; then
-                echo -e "${YELLOW}Re-owning $dir to UID:GID=${UID}:${GID}...${NC}"
-                sudo chown -R "${UID}:${GID}" "$dir" && echo -e "${GREEN}Ownership updated for $dir.${NC}"
+                echo -e "${YELLOW}Re-owning $dir to USER_ID:GROUP_ID=${USER_ID}:${GROUP_ID}...${NC}"
+                sudo chown -R "${USER_ID}:${GROUP_ID}" "$dir" && echo -e "${GREEN}Ownership updated for $dir.${NC}"
             fi
         done
 

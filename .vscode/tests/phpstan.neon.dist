@@ -1,0 +1,7 @@
+parameters:
+  level: 4
+  paths:
+    - web/app/mu-plugins
+    - web/app/plugins
+    - web/app/themes
+    - web/app/sunrise.php

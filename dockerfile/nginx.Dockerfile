@@ -1,10 +1,20 @@
 FROM nginx:latest
 
+WORKDIR /var/www
+
 # Build arguments
 ARG WP_HOME
 ENV WP_HOME=${WP_HOME}
 ARG SUBDOMAIN_SUFFIX
 ENV SUBDOMAIN_SUFFIX=${SUBDOMAIN_SUFFIX}
+
+# Set arguments for USER_ID and GROUP_ID (provided by docker-compose)
+ARG USER_ID
+ARG GROUP_ID
+
+# Modify the www-data group and user to match the host's USER_ID and GROUP_ID
+RUN groupmod -g ${GROUP_ID} www-data && \
+    usermod -u ${USER_ID} -g www-data www-data
 
 # Default log rotate interval in seconds (e.g., 3600 for hourly rotation)
 ARG LOG_ROTATE_INTERVAL=86400
@@ -49,7 +59,7 @@ RUN sed -i '/^#/d' /etc/nginx/templates/default.conf.template
 CMD ["/bin/bash", "-c", "\
     export WP_HOME=$(echo \"$WP_HOME\" | sed -E 's|https?://([a-zA-Z0-9_-]+\\.)?([a-zA-Z0-9_-]+\\.[a-zA-Z]{2,}\\|localhost)|\\2|'); \
     export SUBDOMAIN_SUFFIX=\"$SUBDOMAIN_SUFFIX\"; \
-    chmod 644 /var/www/log/logrotate.conf && chown --no-dereference --preserve-root 0 /var/www/log/logrotate.conf; \
+    chmod 644 ~/logrotate.conf && chown --no-dereference --preserve-root 0 ~/logrotate.conf; \
     while :; do \
         echo \"Rotating logs.\"; \
         logrotate -f ~/logrotate.conf || echo \"Log rotation failed.\"; \

@@ -1,6 +1,5 @@
 services:
   nginx:
-    container_name: bedrock-nginx
     build:
       context: ./nginx
       dockerfile: ../dockerfile/nginx.Dockerfile
@@ -10,6 +9,9 @@ services:
         LOG_ROTATE_INTERVAL: ${LOG_ROTATE_INTERVAL}
         LOG_ROTATE_COUNT: ${LOG_ROTATE_COUNT}
         LOG_ROTATE_COMPRESS: ${LOG_ROTATE_COMPRESS}
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    container_name: nginx
     restart: ${RESTART_POLICY:-unless-stopped}
     ports:
       - "${NGINX_PORT}:80"
@@ -32,11 +34,11 @@ services:
       context: ./dockerfile
       dockerfile: php.Dockerfile
       args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
     volumes:
       - ./.env:/var/www/.env
-      - ./web:/var/www/web
+      - ./web:/var/www/web:rw
       - ./config:/var/www/config
       - ./vendor:/var/www/vendor
       - ./logs:/var/www/log
@@ -59,8 +61,8 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - ./mysql:/docker-entrypoint-initdb.d  # SQL files to be processed on build
-      - db_data:/var/lib/mysql  # Persistent volume for MariaDB data
+      - ./mysql:/docker-entrypoint-initdb.d # SQL files to be processed on build
+      - db_data:/var/lib/mysql # Persistent volume for MariaDB data
     networks:
       - app-network
 
@@ -77,6 +79,31 @@ services:
       PMA_PASSWORD: ${DB_PASSWORD} # Remove these to password protect PMA
     depends_on:
       - mariadb
+    networks:
+      - app-network
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: bedrock-mailhog
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports:
+      - "${MAILHOG_PORT}:8025" # Web UI
+      - "1025:1025" # SMTP
+    environment:
+      MH_USER: ${DB_USER}
+      MH_PASS: ${DB_PASSWORD}
+      MH_AUTH: "/tmp/mh_auth.txt" # This cannot be MH_AUTH_FILE
+    entrypoint: >
+        sh -c '
+        exec MailHog &
+        while true; do
+          if test -s "$(grep -e ^MH_AUTH= /proc/self/environ | cut -d= -f2)"; then
+            echo "[ENTRYPOINT] Auth file detected, restarting MailHog with authentication..."
+            pkill MailHog && MH_AUTH_FILE=$(grep -e ^MH_AUTH= /proc/self/environ | cut -d= -f2) exec MailHog
+            break
+          fi
+          sleep 10
+        done'
     networks:
       - app-network
 

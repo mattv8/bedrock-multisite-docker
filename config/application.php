@@ -10,6 +10,7 @@
  */
 
 use Roots\WPConfig\Config;
+
 use function Env\env;
 
 // USE_ENV_ARRAY + CONVERT_* + STRIP_QUOTES
@@ -160,6 +161,8 @@ Config::define('WP_POST_REVISIONS', env('WP_POST_REVISIONS') ?? true);
 Config::define('WP_DEBUG_DISPLAY', false);
 Config::define('WP_DEBUG_LOG', false);
 Config::define('SCRIPT_DEBUG', false);
+Config::define('LOG_REWRITES', env('LOG_REWRITES') ?? false);
+
 ini_set('display_errors', '0');
 
 /**
@@ -175,7 +178,7 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
  */
 $env_config = __DIR__ . '/environments/' . WP_ENV . '.php';
 if (file_exists($env_config)) {
-    require_once $env_config;
+    include_once $env_config;
 }
 
 /**
@@ -193,7 +196,7 @@ Config::define('SUNRISE', env('SUNRISE') ?: false);
 Config::define('MINIO_URL', env('MINIO_URL') ?: false);
 Config::define('MINIO_BUCKET', env('MINIO_BUCKET') ?: false);
 
-if (in_array(WP_ENV, ['development', 'staging'])) {
+if (in_array(WP_ENV, ['development'])) {
     // Log the last loaded PHP file
     register_shutdown_function(function () {
         $lastError = error_get_last();
@@ -251,7 +254,7 @@ if (in_array(WP_ENV, ['development', 'staging'])) {
         if (!empty($lastError) && !empty($stackTrace)) {
             error_log($logMessage, 3, Config::get('WP_DEBUG_LOG'));
         } else {
-            error_log("[Done]\n", 3, Config::get('WP_DEBUG_LOG'));
+           //error_log("[Done]\n", 3, Config::get('WP_DEBUG_LOG'));
         }
     });
 }

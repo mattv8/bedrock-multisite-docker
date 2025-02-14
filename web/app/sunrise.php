@@ -8,6 +8,7 @@ $wp_home = Config::get('WP_HOME') ?: 'http://localhost';
 $nginx_port = Config::get('NGINX_PORT') ? ':' . Config::get('NGINX_PORT') : '';
 $subdomain_suffix = Config::get('SUBDOMAIN_SUFFIX') ?: '';
 $default_site = Config::get('DOMAIN_CURRENT_SITE') ?: '';
+$log_rewrites = Config::get('LOG_REWRITES');
 
 // Only proceed for development or staging environments
 if ($environment === 'development' || $environment === 'staging') {
@@ -82,7 +83,9 @@ if ($environment === 'development' || $environment === 'staging') {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
         $final_url = "$scheme://$domain" . "$uri";
-        error_log("SUNRISE: COOKIE_DOMAIN=$cookie_domain, blog_id=$blog_id, site_id=$site_id, Rewritten URL: $final_url");
+        if (LOG_REWRITES) {
+            error_log("SUNRISE: COOKIE_DOMAIN=$cookie_domain, blog_id=$blog_id, site_id=$site_id, Rewritten URL: $final_url");
+        }
     }
 }
 
@@ -94,7 +97,7 @@ if ($environment === 'development' || $environment === 'staging') {
  * This function handles multi-level domains (e.g., example.co.uk) and preserves
  * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
  *
- * @param string $url The URL from which to extract the base domain and port.
+ * @param  string $url The URL from which to extract the base domain and port.
  * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
  */
 function get_base_domain($url) {
@@ -114,7 +117,7 @@ function get_base_domain($url) {
 
     // Determine the base domain based on common patterns
     $num_parts = count($host_parts);
-    if (strpos($host,'localhost')) {
+    if (strpos($host, 'localhost')) {
         $base_domain = 'localhost';
     } elseif ($num_parts > 2) {
         // Handle domains like example.co.uk

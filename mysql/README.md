@@ -11,10 +11,9 @@ To migrate an existing "vanilla" WordPress site into this Docker-based Bedrock p
     ```
 2. Place the SQL File in the `mysql/` directory in your Bedrock Docker project. This setup will automatically import any .sql files in `mysql/` when the MySQL Docker container is built.
 
-3. Rebuild the MySQL Container:
-
+3. If you've made changes to your `.env` database variables (`DB_NAME`, `DB_USER` or `DB_PASSWORD`) you must run the following command to recreate the `_grants.sql` script:
     ```bash
-    sudo docker compose build mariadb
+    bash .vscode\install.sh
     ```
 This will restore your database to the Bedrock project.
 
@@ -56,26 +55,13 @@ Copy the uploads directory to web/app/uploads/ to match Bedrock’s structure:
 rsync -vrz /path/to/vanillawp/wp-content/uploads/ ./web/app/uploads/
 ```
 
-### Step 5: Update Database References
-After importing the database, update paths and URLs to match Bedrock’s structure and local setup.
+### Step 5: Recreate MariaDB Docker Container
+    ```bash
+    sudo docker compose stop mariadb
+    sudo docker volume rm $(basename "$PWD")_db_data
+    ```
+The next time you run `docker compose up`, the MariaDB container will initialize with a clean database, and your SQL dump will be restored.
 
-1. Run Search and Replace commands via WP-CLI within the Docker container:
-
-    ```bash
-    sudo docker compose exec php-fpm wp search-replace "http://vanilla-site-url" "http://bedrock-site-url"
-    ```
-    ```bash
-    sudo docker compose exec php-fpm wp search-replace "/wp-content/" "/app/"
-    ```
-    ```bash
-    sudo docker compose exec php-fpm wp option update home "http://bedrock-site-url"
-    ```
-    ```bash
-    sudo docker compose exec php-fpm wp option update siteurl "http://bedrock-site-url"
-    ```
-2. Verify Additional Replacements:
-
-    If you use page builders or custom setups, ensure additional references are updated.
 
 For a more in-depth guide, see [How to Convert Vanilla WP Site to Bedrock](https://neonbrand.com/websites/wordpress/how-to-convert-vanilla-wp-site-to-bedrock/) by Neonbrand.
 

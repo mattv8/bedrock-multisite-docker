@@ -47,4 +47,4 @@ fi
 
 # Start Docker Compose services
 echo "Starting Docker Compose services..."
-sudo WSL_HOST=$WSL_HOST docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml up --build
+sudo WSL_HOST=$WSL_HOST docker compose --env-file $env_dir/.env -f $docker_dir/docker-compose.yml up

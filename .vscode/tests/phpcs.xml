@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<!--
+NOTES
+Searching PHPCS rules:
+vendor/bin/phpcs -i | tr ',' '\n' | awk '{print $NF}' | xargs -I{} vendor/bin/phpcs -e \-\-standard={} | grep -i "name" | sort -u
+
+Running tests locally:
+git ls-files '*.php' -z | xargs -0 vendor/bin/phpcs \-\-standard=.vscode/tests/phpcs.xml > logs/phpcs.log
+ -->
+<ruleset name="PHPCS">
+  <description>Bedrock Coding Standards</description>
+
+  <!-- Scan PHP files inside 'web/' -->
+  <file>web/</file>
+
+  <!-- Scan only PHP files -->
+  <arg name="extensions" value="php" />
+
+  <!--
+    NOTE: PHP_CodeSniffer only runs on files tracked by Git.
+    This means any files listed in .gitignore are automatically excluded from testing.
+    The exclusions below are for files that are NOT already ignored by .gitignore.
+    -->
+  <!-- Some vendor dirs are git-tracked, but we don't want to run test -->
+  <exclude-pattern>vendor/*</exclude-pattern>
+  <exclude-pattern>*/vendor/*</exclude-pattern>
+  <!-- Source-controlled plugins that can't be installed with composer -->
+  <exclude-pattern>*/example-plugin/*</exclude-pattern>
+  <!-- Blade templates -->
+  <exclude-pattern>*.blade.php</exclude-pattern>
+
+  <!-- File Structure Rules -->
+  <rule ref="Squiz.Classes.ClassFileName" />
+  <rule ref="PEAR.Files.IncludingFile" />
+  <rule ref="Generic.Files.ByteOrderMark" />
+  <rule ref="Generic.Files.LineLength">
+    <properties>
+      <property name="lineLimit" value="120" /> <!-- Code line limit -->
+      <property name="absoluteLineLimit" value="140" /> <!-- Hard limit for code -->
+      <property name="ignoreComments" value="true" />
+    </properties>
+  </rule>
+  <rule ref="PSR2.Files.EndFileNewline" />
+  <rule ref="PSR2.Files.ClosingTag" />
+
+  <!-- Whitespace & Indentation -->
+  <rule ref="Generic.WhiteSpace.DisallowTabIndent" />
+  <rule ref="Generic.WhiteSpace.IncrementDecrementSpacing" />
+  <rule ref="Generic.WhiteSpace.ScopeIndent" />
+
+  <!-- PSR-1 and PSR-2 Rules -->
+  <rule ref="PSR1.Files.SideEffects">
+    <exclude name="PSR1.Files.SideEffects.FoundWithSymbols" />
+  </rule>
+  <rule ref="PSR2.Files.ClosingTag" />
+  <rule ref="PSR1.Methods.CamelCapsMethodName" />
+  <rule ref="PSR2.Methods.FunctionCallSignature" />
+  <rule ref="PSR2.Methods.FunctionClosingBrace" />
+  <rule ref="PSR2.Methods.MethodDeclaration" />
+
+  <!-- PSR-12 Specific Rules -->
+  <rule ref="PSR12.Files.DeclareStatement" />
+  <rule ref="PSR12.Files.FileHeader" />
+  <rule ref="PSR12.Files.ImportStatement" />
+  <rule ref="PSR12.Files.OpenTag" />
+
+  <!-- Squiz Rules -->
+  <rule ref="Squiz.Scope.MethodScope" />
+
+  <!-- Generic Coding Standards -->
+  <rule ref="Generic.PHP.LowerCaseConstant" />
+  <rule ref="Generic.PHP.LowerCaseKeyword" />
+  <rule ref="Generic.PHP.LowerCaseType" />
+  <rule ref="Generic.Functions.FunctionCallArgumentSpacing" />
+  <rule ref="Generic.NamingConventions.UpperCaseConstantName" />
+  <rule ref="Generic.Functions.OpeningFunctionBraceKernighanRitchie" />
+
+  <!-- Commenting Rules -->
+  <rule ref="Squiz.Commenting.FunctionComment" />
+  <rule ref="Squiz.Commenting.FunctionCommentThrowTag" />
+  <rule ref="Squiz.Commenting.ClassComment" />
+  <rule ref="Generic.Commenting.DocComment">
+    <exclude name="Generic.Commenting.DocComment.NonParamGroup" />
+  </rule>
+
+  <!-- WordPress Coding Standards -->
+  <rule ref="WordPress.NamingConventions" />
+
+  <!-- Show colors in console -->
+  <arg value="-colors" />
+
+  <!-- Show sniff codes in reports -->
+  <arg value="-report=full" />
+
+</ruleset>

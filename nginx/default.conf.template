@@ -28,6 +28,8 @@ server {
     rewrite ^/(wp-.*.php)$ /wp/$1 last;
     rewrite ^/(wp-(content|admin|includes).*) /wp/$1 last;
 
+    client_max_body_size 64M;
+
     location / {
         try_files $uri $uri/ /index.php?$args;
     }

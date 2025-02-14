@@ -3,9 +3,9 @@ FROM php:8.3-fpm
 # Update sources list to use a faster mirror if /etc/apt/sources.list exists
 # RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.ocf.berkeley.edu/debian|g' /etc/apt/sources.list.d/debian.sources
 
-# Set arguments for UID and GID (provided by docker-compose)
-ARG UID
-ARG GID
+# Set arguments for USER_ID and GROUP_ID (provided by docker-compose)
+ARG USER_ID
+ARG GROUP_ID
 
 # Install dependencies
 RUN apt update -o Acquire::http::Timeout="60"
@@ -28,13 +28,14 @@ RUN apt install -y \
     curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Modify the www-data group and user to match the host's UID and GID
-RUN groupmod -g ${GID} www-data && \
-    usermod -u ${UID} -g www-data www-data
+# Modify the www-data group and user to match the host's USER_ID and GROUP_ID
+RUN groupmod -g ${GROUP_ID} www-data && \
+    usermod -u ${USER_ID} -g www-data www-data
 
-# Set the working directory and ownership
-WORKDIR /var/www
-RUN chown -R www-data:www-data /var/www
+# Set the working directory
+ENV WORKDIR="/var/www"
+WORKDIR $WORKDIR
+RUN rm -rf "$WORKDIR/html"
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -56,11 +57,24 @@ RUN curl -sS https://getcomposer.org/installer -o composer-setup.php \
     && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
     && rm composer-setup.php
 
+RUN composer config --global home $COMPOSER_HOME
+ENV COMPOSER_HOME="/var/composer"
+ENV PATH="$COMPOSER_HOME/vendor/bin:$PATH"
+
 # Verify Composer installation
 RUN composer --version
+
+# Composer allowed plugins
+RUN composer global config --no-plugins allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+
+# Install PHP_CodeSniffer and set defaults globally
+RUN composer global require squizlabs/php_codesniffer phpcsstandards/phpcsutils wp-coding-standards/wpcs
+RUN $COMPOSER_HOME/vendor/bin/phpcs --config-set default_standard "$WORKDIR/.vscode/tests/phpcs.xml" && \
+    $COMPOSER_HOME/vendor/bin/phpcs --config-set installed_paths "$WORKDIR/.vscode/tests/phpcs.xml,$COMPOSER_HOME/vendor/phpcsstandards/phpcsutils,$COMPOSER_HOME/vendor/wp-coding-standards/wpcs"
 
 # Clean up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Run as www-data
+RUN chown -R www-data:www-data $WORKDIR
 USER www-data
