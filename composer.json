@@ -21,7 +21,7 @@
         "roots/wordpress": "6.6.2",
         "roots/wp-config": "1.0.0",
         "roots/wp-password-bcrypt": "1.1.0",
-        "wpackagist-theme/twentytwentyfour": "*"
+        "wpackagist-theme/twentytwentyfour": "*",
         "roots/soil": "^4.1",
     },
     "require-dev": {
@@ -36,7 +36,7 @@
         "allow-plugins": {
             "composer/installers": true,
             "roots/wordpress-core-installer": true,
-            "roots/wordpress-installer": true
+            "roots/wordpress-installer": true,
             "dealerdirect/phpcodesniffer-composer-installer": true
         }
     },
