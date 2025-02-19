@@ -45,7 +45,7 @@ class Rewriter
         $this->subdomain_suffix = Config::get('SUBDOMAIN_SUFFIX') ?: '';
         $this->port = Config::get('NGINX_PORT') ?: '';
         $wp_home = Config::get('WP_HOME', 'http://localhost');
-        $this->wp_base_domain = get_base_domain($wp_home);
+        $this->wp_base_domain = $this->get_base_domain($wp_home);
         $parsed_wp_home = parse_url($wp_home);
         $this->scheme = $parsed_wp_home['scheme'];
 
@@ -53,27 +53,31 @@ class Rewriter
         // Load the production domain from the environment
         $this->wp_production_domain = Config::get('WP_PRODUCTION_DOMAIN', ''); // e.g. example.com
         if (!$this->wp_production_domain) {
-            error_log("WP_PRODUCTION_DOMAIN is not set. Please check your .env file.");
+            error_log("[Rewriter]: WP_PRODUCTION_DOMAIN is not set. Please check your .env file.");
         }
+
+        // Cookies
+        $this->set_cookie_domain();
 
         // Whether to log rewrite information
         $this->log_rewrites = Config::get('LOG_REWRITES') ?: false;
-
         $this->wp_default_site = Config::get('DOMAIN_CURRENT_SITE', '');
+
     }
 
     /**
      * Add filters to rewrite URLs, including multisite domain filters.
      */
     public function addFilters() {
+        add_filter('option_home', [$this, 'rewriteSiteURL']);
+        add_filter('option_siteurl', [$this, 'rewriteSiteURL']);
+
         if (is_multisite()) {
-            add_filter('option_home', [$this, 'rewriteSiteURL']);
-            add_filter('option_siteurl', [$this, 'rewriteSiteURL']);
             add_filter('network_site_url', [$this, 'rewriteSiteURL']);
             add_filter('network_admin_url', [$this, 'rewriteSiteURL']);
         }
 
-        // Media-specific filters        
+        // Media-specific filters
         add_filter('upload_dir', [$this, 'rewriteSiteURL']);
         add_filter('login_redirect', [$this, 'rewriteSiteURL']);
         add_filter('wp_redirect', [$this, 'rewriteSiteURL']);
@@ -94,7 +98,7 @@ class Rewriter
         // Check if $url is an array (for srcset), and apply rewriting to each entry.
         if (is_array($url)) {
             foreach ($url as $key => $single_url) {
-                $url[$key] = $this->rewriteURL($single_url);  // Recursively rewrite each URL in the srcset array.
+                $url[$key] = $this->rewriteURL($single_url); // Recursively rewrite each URL in the srcset array.
             }
             return $url;
         }
@@ -114,12 +118,25 @@ class Rewriter
 
         // Extract URL components to be used for later processing
         $host = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
-        $scheme = $parsed_url['scheme'] ?? 'http';
         $path = $parsed_url['path'] ?? '';
         $query = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
 
+        // Remove '/wp/' or a trailing '/wp' from the URL path
+        $pattern = '#/wp(/|$)#';
+        if ($path && preg_match($pattern, $path)) {
+            $rewrittenURL = preg_replace($pattern, '', $url, 1);
+
+            if ($rewrittenURL !== $url) {
+                if ($this->log_rewrites) {
+                    error_log("[Rewriter]: Fixed path from: $url to $rewrittenURL");
+                }
+                $this->rewrite_cache[$url] = $this->rewriteURL($rewrittenURL);
+                return $this->rewrite_cache[$url];
+            }
+        }
+
         // Rewrite any media URL's to MinIO
-        if ($path && strpos($path, '/app/uploads/') !== false) {
+        if ($path && strpos($path, '/app/uploads') !== false) {
             if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($host, $this->minio_url) !== false) {
                 $this->rewrite_cache[$url] = $url;
                 return $this->rewrite_cache[$url];
@@ -137,15 +154,10 @@ class Rewriter
 
             $this->rewrite_cache[$url] = $rewrittenURL . $query;
             if ($this->log_rewrites) {
-                error_log("Rewrite media URL from $url to $rewrittenURL");
+                error_log("[Rewriter]: Rewrite media URL from $url to $rewrittenURL");
             }
 
             return $this->rewrite_cache[$url];
-        }
-
-        // Ensure that home URL does not contain the /wp subdirectory before moving on
-        if ($path && strpos($path, '/wp/') !== false) {
-            $url = str_replace('/wp/', '/', $url);
         }
 
         // Check if the base domain and subdomain suffix are present in the URL
@@ -153,36 +165,46 @@ class Rewriter
         $suffix_present_in_url = strpos($url, $this->subdomain_suffix) !== false;
 
         // Basic check that the URL qualifies as being rewritable
-        $rewriteable_url = get_base_domain($url)['with_port'] == $this->wp_production_domain ||
-            get_base_domain($url)['with_port'] == $this->wp_base_domain['with_port'] ||
-            get_base_domain($url)['with_port'] == $this->wp_base_domain['without_port'];
+        $rewriteable_url = $this->get_base_domain($url)['with_port'] == $this->wp_production_domain ||
+            $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['with_port'] ||
+            $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['without_port'];
 
         // Determine if the port is missing and needs to be added
-        $missing_port = strpos($url, $this->wp_base_domain['with_port']) == false &&
+        $missing_port = strpos($url, $this->wp_base_domain['with_port']) === false &&
             !isset($parsed_url['port']) &&
             isset($this->port) &&
-            ($this->port != 80 || $this->port != 443);
+            $this->wp_base_domain['without_port'] == 'localhost' &&
+            ($this->port != 80 && $this->port != 443);
 
-        if (!$base_domain_present_in_url || !$suffix_present_in_url) {
+        if (!($base_domain_present_in_url && $suffix_present_in_url) && $rewriteable_url) {
+
+            // If the scheme is not as expected, correct it.
+            $wrong_scheme = parse_url($url, PHP_URL_SCHEME) !== $this->scheme ? true : false;
+            $url_with_scheme = $wrong_scheme ? $this->scheme . '://' . preg_replace('/^https?:\/\//', '', $url) : $url;
 
             // If the port is missing, append it to the URL
-            $url_with_port = ($missing_port && $rewriteable_url) ? "$scheme://{$host}:{$this->port}{$path}" : $url;
+            $url_with_port = ($missing_port) ? "{$this->scheme}://{$host}:{$this->port}{$path}" : $url_with_scheme;
 
             // If the suffix is missing, prepend it before the base domain
             $suffix = (!$suffix_present_in_url) ? $this->subdomain_suffix . '.' : '';
 
             // Rewrite the URL by ensuring the correct subdomain and port formatting
-            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?" . preg_quote($this->wp_production_domain, '/') . "(?::[0-9]+)?(\/.*)?/";
+            $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?(?:";
+            $pattern .= preg_quote($this->wp_production_domain, '/');
+            $pattern .= "|";
+            $pattern .= preg_quote($this->wp_base_domain['without_port'], '/');
+            $pattern .=")(?::[0-9]+)?(\/.*)?/";
+
             $replacement = $this->scheme . '://${1}' . $suffix . $this->wp_base_domain['with_port'] . '${2}';
 
             // Apply the rewrite and cache the new URL
             $rewrittenURL = preg_replace($pattern, $replacement, $url_with_port);
-            $this->rewrite_cache[$url] = "{$rewrittenURL}";
 
             if ($this->log_rewrites) {
-                error_log("Rewrite specific URL from $url to $rewrittenURL");
+                error_log("[Rewriter]: Rewrite specific URL from $url to $rewrittenURL");
             }
-            
+
+            $this->rewrite_cache[$url] = $rewrittenURL;
             return $this->rewrite_cache[$url];
         }
 
@@ -197,52 +219,88 @@ class Rewriter
     public function rewriteSiteURL($url) {
         return $this->rewriteURL($url);
     }
-}
 
+    /**
+     * Sets the COOKIE_DOMAIN for WordPress authentication cookies.
+     *
+     * This method determines the appropriate cookie domain based on the current
+     * HTTP host and configured base domain. If a subdomain is detected and
+     * does not match the base domain, it is included in the cookie domain.
+     *
+     * Constants Defined:
+     * - COOKIE_DOMAIN: The computed domain for setting authentication cookies.
+     * - ADMIN_COOKIE_PATH: Ensures admin cookies are scoped correctly.
+     *
+     * Logs the computed COOKIE_DOMAIN if logging is enabled.
+     *
+     * @return void
+     */
+    protected function set_cookie_domain(): void {
+        $domain = strtolower($_SERVER['HTTP_HOST'] ?? '');
+        $parts = explode('.', $domain);
+        $subdomain = (strpos($parts[0], $this->wp_base_domain['with_port']) === false) ? $parts[0] : null;
 
-/**
- * Extracts the base domain from a given URL, stripping subdomains if applicable,
- * and appends the port unless it is 80 (HTTP) or 443 (HTTPS).
- *
- * This function handles multi-level domains (e.g., example.co.uk) and preserves
- * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
- *
- * @param  string $url The URL from which to extract the base domain and port.
- * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
- */
-function get_base_domain(string $url) {
-    $parsed_url = parse_url($url);
-    if (!isset($parsed_url['host'])) {
-        error_log("Invalid URL: $url");
-        return null;
-    }
-
-    $host = $parsed_url['host'];
-    $port = isset($parsed_url['port']) && !in_array($parsed_url['port'], [80, 443])
-        ? ':' . $parsed_url['port']
-        : '';
-
-    // Split the host into parts
-    $host_parts = explode('.', $host);
-
-
-    // Determine the base domain based on common patterns
-    $num_parts = count($host_parts);
-    if (strpos($host, 'localhost')) {
-        $base_domain = 'localhost';
-    } elseif ($num_parts > 2) {
-        // Handle domains like example.co.uk
-        $base_domain = implode('.', array_slice($host_parts, -2));
-        if (in_array($host_parts[$num_parts - 2], ['co', 'gov', 'ac'])) {
-            $base_domain = implode('.', array_slice($host_parts, -3));
+        if ($subdomain && $this->subdomain_suffix && str_ends_with($subdomain, $this->subdomain_suffix)) {
+            $subdomain = substr($subdomain, 0, -strlen($this->subdomain_suffix));
         }
-    } else {
-        // For domains like example.com
-        $base_domain = $host;
+
+        $cookie_domain = $subdomain
+            ? "$subdomain{$this->subdomain_suffix}.{$this->wp_base_domain['without_port']}"
+            : $this->wp_base_domain['without_port'];
+
+        define('COOKIE_DOMAIN', $cookie_domain);
+        define('ADMIN_COOKIE_PATH', '/wp-admin');
+
+        if ($this->log_rewrites) {
+            error_log("[Rewriter]: COOKIE_DOMAIN: $cookie_domain");
+        }
     }
 
-    return [
-        'with_port' => $base_domain . $port,
-        'without_port' => $base_domain,
-    ];
+
+    /**
+     * Extracts the base domain from a given URL, stripping subdomains if applicable,
+     * and appends the port unless it is 80 (HTTP) or 443 (HTTPS).
+     *
+     * This function handles multi-level domains (e.g., example.co.uk) and preserves
+     * non-standard ports if specified in the URL. If no valid host is found, it logs an error.
+     *
+     * @param  string $url The URL from which to extract the base domain and port.
+     * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
+     */
+    protected function get_base_domain(string $url) {
+        $parsed_url = parse_url($url);
+        if (!isset($parsed_url['host'])) {
+            error_log("[Rewriter]: Invalid URL: $url");
+            return null;
+        }
+
+        $host = $parsed_url['host'];
+        $port = isset($parsed_url['port']) && !in_array($parsed_url['port'], [80, 443])
+            ? ':' . $parsed_url['port']
+            : '';
+
+        // Split the host into parts
+        $host_parts = explode('.', $host);
+
+
+        // Determine the base domain based on common patterns
+        $num_parts = count($host_parts);
+        if (strpos($host, 'localhost')) {
+            $base_domain = 'localhost';
+        } elseif ($num_parts > 2) {
+            // Handle domains like example.co.uk
+            $base_domain = implode('.', array_slice($host_parts, -2));
+            if (in_array($host_parts[$num_parts - 2], ['co', 'gov', 'ac'])) {
+                $base_domain = implode('.', array_slice($host_parts, -3));
+            }
+        } else {
+            // For domains like example.com
+            $base_domain = $host;
+        }
+
+        return [
+            'with_port' => $base_domain . $port,
+            'without_port' => $base_domain,
+        ];
+    }
 }

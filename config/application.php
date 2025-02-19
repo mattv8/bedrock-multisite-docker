@@ -63,14 +63,14 @@ if (!env('WP_ENVIRONMENT_TYPE') && in_array(WP_ENV, ['production', 'staging', 'd
 }
 
 /**
- * URLs and Domain Configuration
+ * URLs and Primary Domain Configuration
  */
 $nginx_port = env('NGINX_PORT') ? ':' . env('NGINX_PORT') : '';
 $subdomain_suffix = env('SUBDOMAIN_SUFFIX');
-
-Config::define('NGINX_PORT', env('NGINX_PORT') ?: '');
-// Configure production domain
 $production_domain = env('WP_PRODUCTION_DOMAIN');
+
+// Append the port only if it's a 'localhost' instance; otherwise, assume it's proxied and don't append the port.
+$wp_home = (strpos(env('WP_HOME'), 'localhost') !== false) ? env('WP_HOME') . $nginx_port : env('WP_HOME');
 
 // Default DOMAIN_CURRENT_SITE if unset, adjusted for environment
 $domain_current_site = env('DOMAIN_CURRENT_SITE') ?: 'localhost';
@@ -86,8 +86,9 @@ if (WP_ENV !== 'production' && $subdomain_suffix) {
     }
 }
 
-Config::define('WP_HOME', env('WP_HOME') . $nginx_port);
-Config::define('WP_SITEURL', env('WP_HOME') . $nginx_port . '/wp');
+Config::define('NGINX_PORT', env('NGINX_PORT') ?: '');
+Config::define('WP_HOME', $wp_home);
+Config::define('WP_SITEURL', $wp_home . '/wp');
 Config::define('DOMAIN_CURRENT_SITE', $domain_current_site);
 Config::define('WP_PRODUCTION_DOMAIN', $production_domain);
 Config::define('SUBDOMAIN_SUFFIX', $subdomain_suffix);
@@ -154,6 +155,11 @@ Config::define('DISALLOW_FILE_MODS', true);
 
 // Limit the number of post revisions
 Config::define('WP_POST_REVISIONS', env('WP_POST_REVISIONS') ?? true);
+
+/**
+ * SMTP
+ */
+Config::define('MAILHOG_SMTP', env('MAILHOG_SMTP') ?? '1025');
 
 /**
  * Debugging Settings

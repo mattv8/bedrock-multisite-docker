@@ -1,5 +1,6 @@
 services:
   nginx:
+    container_name: bedrock-nginx
     build:
       context: ./nginx
       dockerfile: ../dockerfile/nginx.Dockerfile
@@ -11,7 +12,6 @@ services:
         LOG_ROTATE_COMPRESS: ${LOG_ROTATE_COMPRESS}
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
-    container_name: bedrock-nginx
     restart: ${RESTART_POLICY:-unless-stopped}
     ports:
       - "${NGINX_PORT}:80"
@@ -87,8 +87,8 @@ services:
     container_name: bedrock-mailhog
     restart: ${RESTART_POLICY:-unless-stopped}
     ports:
-      - "${MAILHOG_PORT}:8025" # Web UI
-      - "1025:1025" # SMTP
+      - "${MAILHOG_GUI}:8025" # Web UI
+      - "${MAILHOG_SMTP}:1025" # SMTP
     environment:
       MH_USER: ${DB_USER}
       MH_PASS: ${DB_PASSWORD}

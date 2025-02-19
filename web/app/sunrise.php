@@ -72,19 +72,13 @@ if ($environment === 'development' || $environment === 'staging') {
         'lang_id' => 0,
     ];
 
-    // Set COOKIE_DOMAIN to handle subdomains dynamically, including suffix
-    $cookie_domain = $subdomain
-        ? $subdomain . $subdomain_suffix . '.' . $wp_base_domain['without_port']
-        : $wp_base_domain['without_port'];
-    define('COOKIE_DOMAIN', $cookie_domain);
-
     // Debugging log to confirm settings in development
     if ($environment === 'development') {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $uri = strtolower($_SERVER['REQUEST_URI'] ?? '');
         $final_url = "$scheme://$domain" . "$uri";
-        if (LOG_REWRITES) {
-            error_log("SUNRISE: COOKIE_DOMAIN=$cookie_domain, blog_id=$blog_id, site_id=$site_id, Rewritten URL: $final_url");
+        if (Config::get('LOG_REWRITES')) {
+            error_log("[SUNRISE]: blog_id=$blog_id, site_id=$site_id, Rewritten URL: $final_url");
         }
     }
 }

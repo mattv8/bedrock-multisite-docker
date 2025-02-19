@@ -40,8 +40,7 @@ class Mailer
         $phpmailer->SMTPSecure = '';
         $phpmailer->SMTPAutoTLS = false;
         $phpmailer->Host = 'mailhog';
-        $phpmailer->Port = '1025';
-        // login details
+        $phpmailer->Port = Config::get('MAILHOG_SMTP');
         $phpmailer->Username = null;
         $phpmailer->Password = null;
 
@@ -80,5 +79,7 @@ class Mailer
 
         // Append debugging info to email body
         $phpmailer->Body .= $debug_info;
+
+        error_log("[Rewriter]: PHPMailer configured for SMTP via MailHog on port " . Config::get('MAILHOG_SMTP') . ". Email sent to: " . implode(', ', (array) $phpmailer->getTo()));
     }
 }
