@@ -88,18 +88,19 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
     ports:
       - "${MAILHOG_GUI}:8025" # Web UI
-      - "${MAILHOG_SMTP}:1025" # SMTP
     environment:
       MH_USER: ${DB_USER}
       MH_PASS: ${DB_PASSWORD}
       MH_AUTH: "/tmp/mh_auth.txt" # This cannot be MH_AUTH_FILE
+      MH_SMTP: ${MAILHOG_SMTP:-1025} # SMTP
     entrypoint: >
         sh -c '
-        exec MailHog &
+        exec MailHog -smtp-bind-addr=0.0.0.0:$(grep -e ^MH_SMTP= /proc/self/environ | cut -d= -f2) &
         while true; do
           if test -s "$(grep -e ^MH_AUTH= /proc/self/environ | cut -d= -f2)"; then
             echo "[ENTRYPOINT] Auth file detected, restarting MailHog with authentication..."
-            pkill MailHog && MH_AUTH_FILE=$(grep -e ^MH_AUTH= /proc/self/environ | cut -d= -f2) exec MailHog
+            pkill MailHog && MH_AUTH_FILE=$(grep -e ^MH_AUTH= /proc/self/environ | cut -d= -f2) \
+            exec MailHog -smtp-bind-addr=0.0.0.0:$(grep -e ^MH_SMTP= /proc/self/environ | cut -d= -f2)
             break
           fi
           sleep 10
