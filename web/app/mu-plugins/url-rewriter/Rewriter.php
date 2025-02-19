@@ -62,7 +62,6 @@ class Rewriter
         // Whether to log rewrite information
         $this->log_rewrites = Config::get('LOG_REWRITES') ?: false;
         $this->wp_default_site = Config::get('DOMAIN_CURRENT_SITE', '');
-
     }
 
     /**
@@ -120,6 +119,7 @@ class Rewriter
         $host = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
         $path = $parsed_url['path'] ?? '';
         $query = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
+        $subdomain = $this->get_subdomain($url);
 
         // Remove '/wp/' or a trailing '/wp' from the URL path
         $pattern = '#/wp(/|$)#';
@@ -162,11 +162,11 @@ class Rewriter
 
         // Check if the base domain and subdomain suffix are present in the URL
         $base_domain_present_in_url = strpos($url, $this->wp_base_domain['with_port']) !== false;
-        $suffix_present_in_url = strpos($url, $this->subdomain_suffix) !== false;
+        $suffix_present_in_url = $subdomain && strpos((string)$subdomain, $this->subdomain_suffix) !== false;
 
         // Basic check that the URL qualifies as being rewritable
         $rewriteable_url = $this->get_base_domain($url)['with_port'] == $this->wp_production_domain ||
-            $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['with_port'] ||
+            // $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['with_port'] ||
             $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['without_port'];
 
         // Determine if the port is missing and needs to be added
@@ -186,7 +186,7 @@ class Rewriter
             $url_with_port = ($missing_port) ? "{$this->scheme}://{$host}:{$this->port}{$path}" : $url_with_scheme;
 
             // If the suffix is missing, prepend it before the base domain
-            $suffix = (!$suffix_present_in_url) ? $this->subdomain_suffix . '.' : '';
+            $suffix = (!$suffix_present_in_url && $subdomain) ? $this->subdomain_suffix . '.' : '.';
 
             // Rewrite the URL by ensuring the correct subdomain and port formatting
             $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?(?:";
@@ -303,4 +303,37 @@ class Rewriter
             'without_port' => $base_domain,
         ];
     }
+
+    /**
+     * Extracts the subdomain from a given URL.
+     *
+     * This function checks if the provided URL contains a subdomain. It returns `true` and
+     * the subdomain part (with any trailing dot removed) if a subdomain exists. If no subdomain
+     * is found, it returns `false` and an empty string.
+     *
+     * The URL can optionally include a scheme (http or https) and port number.
+     *
+     * Example:
+     * getSubdomain("http://docs.example.com:8080") will return [true, 'docs'].
+     * getSubdomain("example.com") will return [false, ''].
+     *
+     * @param  string $url The URL to check for a subdomain.
+     * @return array An array where the first element is a boolean indicating if a subdomain is present,
+     *               and the second element is the subdomain (if found), or an empty string if no subdomain exists.
+     */
+    private function get_subdomain(string $url) {
+        // Extract host from URL
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!$host || filter_var($host, FILTER_VALIDATE_IP) || $host === 'localhost') {
+            return false;
+        }
+
+        // Match subdomain and domain
+        if (preg_match('/^((?:[a-z0-9\-]+\.)+)([a-z0-9\-]{2,}(?:\.[a-z]{2,6})?)$/i', $host, $matches)) {
+            return rtrim($matches[1], '.'); // Return only the subdomain
+        }
+
+        return false; // No subdomain found
+    }
+
 }
