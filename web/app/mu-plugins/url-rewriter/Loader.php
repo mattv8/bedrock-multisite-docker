@@ -14,8 +14,8 @@ require_once __DIR__ . '/Mailer.php';
 use URL\Rewriter;
 use URL\Mailer;
 
-(new Rewriter())->addFilters();
+(new Rewriter())->add_filters();
 
 if (defined('WP_ENV') && in_array(WP_ENV, ['development', 'staging'], true)) {
-    (new URL\Mailer())->addMailhogActions();
+    (new URL\Mailer())->add_mailhog_actions();
 }

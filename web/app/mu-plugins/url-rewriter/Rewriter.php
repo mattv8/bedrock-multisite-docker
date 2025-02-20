@@ -14,6 +14,12 @@ use Roots\WPConfig\Config;
 
 use function Env\env;
 
+/**
+ * Class Rewriter
+ *
+ * Handles URL rewriting for WordPress uploads and MinIO/S3 integration.
+ * Ensures correct domain handling, subdomain support, and logging of rewrites.
+ */
 class Rewriter
 {
     protected $minio_url;
@@ -29,6 +35,12 @@ class Rewriter
     protected $wp_production_domain;
     protected $log_rewrites;
 
+    /**
+     * Rewriter constructor.
+     *
+     * Initializes domain settings, upload paths, and MinIO/S3 configuration.
+     * Fetches base domain and port settings from configuration.
+     */
     public function __construct() {
         // Uploads Directory
         // Fetch uploads directory base URL once to avoid recursion issues
@@ -65,44 +77,90 @@ class Rewriter
     }
 
     /**
-     * Add filters to rewrite URLs, including multisite domain filters.
+     * Registers WordPress filters to rewrite URLs.
+     *
+     * This method hooks into various WordPress filters to modify URLs dynamically.
+     * It ensures URLs are correctly rewritten for multisite setups, media uploads,
+     * redirects, and asset loading (scripts, styles, plugins).
+     *
+     * @return void
      */
-    public function addFilters() {
-        add_filter('option_home', [$this, 'rewriteSiteURL']);
-        add_filter('option_siteurl', [$this, 'rewriteSiteURL']);
+    public function add_filters() {
+        add_filter('option_home', [$this, 'rewrite_site_url']);
+        add_filter('option_siteurl', [$this, 'rewrite_site_url']);
 
         if (is_multisite()) {
-            add_filter('network_site_url', [$this, 'rewriteSiteURL']);
-            add_filter('network_admin_url', [$this, 'rewriteSiteURL']);
+            add_filter('network_site_url', [$this, 'rewrite_site_url']);
+            add_filter('network_admin_url', [$this, 'rewrite_site_url']);
         }
 
         // Media-specific filters
-        add_filter('upload_dir', [$this, 'rewriteSiteURL']);
-        add_filter('login_redirect', [$this, 'rewriteSiteURL']);
-        add_filter('wp_redirect', [$this, 'rewriteSiteURL']);
+        add_filter('upload_dir', [$this, 'rewrite_site_url']);
+        add_filter('login_redirect', [$this, 'rewrite_site_url']);
+        add_filter('wp_redirect', [$this, 'rewrite_site_url']);
 
         // Uncomment below lines if filters for scripts, styles, and other items are needed
-        add_filter('script_loader_src', [$this, 'rewriteSiteURL']);
-        add_filter('style_loader_src', [$this, 'rewriteSiteURL']);
+        add_filter('script_loader_src', [$this, 'rewrite_site_url']);
+        add_filter('style_loader_src', [$this, 'rewrite_site_url']);
 
-        add_filter('plugins_url', [$this, 'rewriteSiteURL']);
+        add_filter('plugins_url', [$this, 'rewrite_site_url']);
     }
 
     /**
-     * Core function to rewrite URLs for media and site content.
+     * Rewrites the site URL by applying necessary transformations.
+     *
+     * This method acts as a wrapper to the `rewrite_url` method, passing the given URL through
+     * to the core URL rewriting logic. It ensures that the necessary transformations, such as
+     * path corrections, media URL rewrites, and domain adjustments, are applied to the provided URL.
+     *
+     * @param mixed $url The URL to be rewritten.
+     *
+     * @return string The rewritten URL after applying the transformations.
      */
-    protected function rewriteURL($url) {
-        global $current_blog;
+    public function rewrite_site_url(mixed $url) {
 
-        // Check if $url is an array (for srcset), and apply rewriting to each entry.
+        // If $url is a string, rewrite it directly
+        if (is_string($url)) {
+            return $this->rewrite_url($url);
+        }
+
+        // If $url is an array, such as in a scrset, recursively rewrite each URL in the array
         if (is_array($url)) {
             foreach ($url as $key => $single_url) {
-                $url[$key] = $this->rewriteURL($single_url); // Recursively rewrite each URL in the srcset array.
+                if (is_string($single_url)) {
+                    $url[$key] = $this->rewrite_url($single_url);
+                }
             }
             return $url;
         }
 
-        // Check cache to prevent repeated rewrites
+        // If $url is neither a string nor an array, return the original value
+        return $url;
+    }
+
+    /**
+     * Rewrites URLs for media and site content, handling various conditions such as path corrections,
+     * media URL rewrites to MinIO, and domain and subdomain adjustments.
+     *
+     * This method processes a given URL (or an array of URLs), performs checks to ensure it's a valid
+     * URL, and rewrites it based on conditions such as:
+     * - Removal of the `/wp/` path segment if present.
+     * - Rewriting media URLs to point to MinIO if applicable.
+     * - Correcting missing or incorrect schemes and ports.
+     * - Handling multisite installs by appending the appropriate `blog_id` to media URLs.
+     *
+     * The method checks if a URL has been rewritten before by looking up its cache, ensuring that the
+     * same URL is not processed multiple times. The URL is rewritten only if certain conditions are met
+     * based on the configured base domain, production domain, and subdomain suffix.
+     *
+     * @param string|array $url The URL(s) to be rewritten. Can be a single URL or an array of URLs (e.g., for srcset).
+     *
+     * @return string|array The rewritten URL(s), or the original URL if no rewriting was needed.
+     */
+    protected function rewrite_url(string $url) {
+        global $current_blog;
+
+        // First, check cache to prevent repeated rewrites
         if (isset($this->rewrite_cache[$url])) {
             return $this->rewrite_cache[$url];
         }
@@ -119,74 +177,79 @@ class Rewriter
         $host = $parsed_url['host'] . (isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '');
         $path = $parsed_url['path'] ?? '';
         $query = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
-        $subdomain = $this->get_subdomain($url);
 
         // Remove '/wp/' or a trailing '/wp' from the URL path
         $pattern = '#/wp(/|$)#';
         if ($path && preg_match($pattern, $path)) {
-            $rewrittenURL = preg_replace($pattern, '', $url, 1);
+            $rewritten_url = preg_replace($pattern, '', $url, 1);
 
-            if ($rewrittenURL !== $url) {
+            if ($rewritten_url !== $url) {
                 if ($this->log_rewrites) {
-                    error_log("[Rewriter]: Fixed path from: $url to $rewrittenURL");
+                    error_log("[Rewriter]: Fixed path from: $url to $rewritten_url");
                 }
-                $this->rewrite_cache[$url] = $this->rewriteURL($rewrittenURL);
+                $this->rewrite_cache[$url] = $this->rewrite_url($rewritten_url);
                 return $this->rewrite_cache[$url];
             }
         }
 
         // Rewrite any media URL's to MinIO
         if ($path && strpos($path, '/app/uploads') !== false) {
+
+            // Check that minio parameters have been set before continuing
             if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($host, $this->minio_url) !== false) {
                 $this->rewrite_cache[$url] = $url;
                 return $this->rewrite_cache[$url];
             }
 
+            // If this is a multi-site install, we need to include the blog_id
             $uploads_path = strpos($path, '/app/uploads/sites/') !== false
                 ? "/sites/{$current_blog->blog_id}"
                 : '';
 
-            $rewrittenURL = str_replace(
+            // Rewrite the url
+            $rewritten_url = str_replace(
                 $this->uploads_baseurl,
-                "{$this->minio_url}/{$this->minio_bucket}$uploads_path",
+                "{$this->minio_url}/{$this->minio_bucket}{$uploads_path}",
                 $url
             );
 
-            $this->rewrite_cache[$url] = $rewrittenURL . $query;
+            // Re-append any query params and cache the $url
+            $this->rewrite_cache[$url] = $rewritten_url . $query;
             if ($this->log_rewrites) {
-                error_log("[Rewriter]: Rewrite media URL from $url to $rewrittenURL");
+                error_log("[Rewriter]: Rewrite media URL from $url to $rewritten_url");
             }
 
             return $this->rewrite_cache[$url];
         }
 
-        // Check if the base domain and subdomain suffix are present in the URL
-        $base_domain_present_in_url = strpos($url, $this->wp_base_domain['with_port']) !== false;
-        $suffix_present_in_url = $subdomain && strpos((string)$subdomain, $this->subdomain_suffix) !== false;
-
         // Basic check that the URL qualifies as being rewritable
-        $rewriteable_url = $this->get_base_domain($url)['with_port'] == $this->wp_production_domain ||
-            // $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['with_port'] ||
-            $this->get_base_domain($url)['with_port'] == $this->wp_base_domain['without_port'];
+        $base_domain = $this->get_base_domain($url)['with_port'];
+        $base_domain_present = in_array($base_domain, [
+            $this->wp_production_domain,
+            $this->wp_base_domain['with_port'],
+            $this->wp_base_domain['without_port']
+        ], true);
 
-        // Determine if the port is missing and needs to be added
-        $missing_port = strpos($url, $this->wp_base_domain['with_port']) === false &&
-            !isset($parsed_url['port']) &&
-            isset($this->port) &&
-            $this->wp_base_domain['without_port'] == 'localhost' &&
-            ($this->port != 80 && $this->port != 443);
+        // Check if the base domain and subdomain suffix are present in the URL
+        $subdomain = $this->get_subdomain($url);
+        $suffix_present = $subdomain && strpos($subdomain, $this->subdomain_suffix) !== false;
 
-        if (!($base_domain_present_in_url && $suffix_present_in_url) && $rewriteable_url) {
+        if (!$suffix_present && $base_domain_present) {
 
             // If the scheme is not as expected, correct it.
             $wrong_scheme = parse_url($url, PHP_URL_SCHEME) !== $this->scheme ? true : false;
             $url_with_scheme = $wrong_scheme ? $this->scheme . '://' . preg_replace('/^https?:\/\//', '', $url) : $url;
 
-            // If the port is missing, append it to the URL
+            // If the port is missing and needs to be added, correct it.
+            $missing_port = !isset($parsed_url['port'])
+                && isset($this->port)
+                && !in_array($this->port, [80, 443], true)
+                && $this->wp_base_domain['without_port'] === 'localhost'
+                && strpos($url, $this->wp_base_domain['with_port']) === false;
             $url_with_port = ($missing_port) ? "{$this->scheme}://{$host}:{$this->port}{$path}" : $url_with_scheme;
 
-            // If the suffix is missing, prepend it before the base domain
-            $suffix = (!$suffix_present_in_url && $subdomain) ? $this->subdomain_suffix . '.' : '.';
+            // If $url has a subdomain and the suffix is missing, prepend it before the base domain
+            $suffix = (!$suffix_present && $subdomain) ? $this->subdomain_suffix . '.' : '';
 
             // Rewrite the URL by ensuring the correct subdomain and port formatting
             $pattern = "/(?:https:\/\/|http:\/\/)?(?:([a-zA-Z0-9_-]+)\.)?(?:";
@@ -195,29 +258,23 @@ class Rewriter
             $pattern .= preg_quote($this->wp_base_domain['without_port'], '/');
             $pattern .=")(?::[0-9]+)?(\/.*)?/";
 
+            // Final replacement
             $replacement = $this->scheme . '://${1}' . $suffix . $this->wp_base_domain['with_port'] . '${2}';
 
             // Apply the rewrite and cache the new URL
-            $rewrittenURL = preg_replace($pattern, $replacement, $url_with_port);
+            $rewritten_url = preg_replace($pattern, $replacement, $url_with_port);
+            $this->rewrite_cache[$url] = $rewritten_url;
 
             if ($this->log_rewrites) {
-                error_log("[Rewriter]: Rewrite specific URL from $url to $rewrittenURL");
+                error_log("[Rewriter]: Rewrite specific URL from $url to $rewritten_url");
             }
 
-            $this->rewrite_cache[$url] = $rewrittenURL;
             return $this->rewrite_cache[$url];
         }
 
         // Fallback if no other conditions are met
         $this->rewrite_cache[$url] = $url;
         return $url;
-    }
-
-    /**
-     * Rewrites the site URL, applying only necessary transformations.
-     */
-    public function rewriteSiteURL($url) {
-        return $this->rewriteURL($url);
     }
 
     /**
@@ -318,8 +375,8 @@ class Rewriter
      * getSubdomain("example.com") will return [false, ''].
      *
      * @param  string $url The URL to check for a subdomain.
-     * @return array An array where the first element is a boolean indicating if a subdomain is present,
-     *               and the second element is the subdomain (if found), or an empty string if no subdomain exists.
+     * @return string|boolean Either a boolean indicating if a subdomain is present, or a string
+     *                        containing the subdomain .
      */
     private function get_subdomain(string $url) {
         // Extract host from URL

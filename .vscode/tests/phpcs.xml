@@ -53,7 +53,6 @@ git ls-files '*.php' -z | xargs -0 vendor/bin/phpcs \-\-standard=.vscode/tests/p
     <exclude name="PSR1.Files.SideEffects.FoundWithSymbols" />
   </rule>
   <rule ref="PSR2.Files.ClosingTag" />
-  <rule ref="PSR1.Methods.CamelCapsMethodName" />
   <rule ref="PSR2.Methods.FunctionCallSignature" />
   <rule ref="PSR2.Methods.FunctionClosingBrace" />
   <rule ref="PSR2.Methods.MethodDeclaration" />
