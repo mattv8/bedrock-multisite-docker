@@ -204,7 +204,7 @@ class Rewriter
             }
 
             // Adjust MINIO_URL for local development based on WP_HOME from .env
-            if ($this->wp_base_domain['without_port'] === 'localhost') {
+            if ($this->wp_base_domain['without_port'] === 'localhost' && Config::get("MINIO_PORT")) {
                 $this->minio_url = $this->scheme . '://' . $this->wp_base_domain['without_port'] . ':' . Config::get('MINIO_PORT');
             }
 

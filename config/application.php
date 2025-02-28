@@ -199,7 +199,7 @@ Config::define('BLOG_ID_CURRENT_SITE', env('BLOG_ID_CURRENT_SITE') ?: 1);
 Config::define('SUNRISE', env('SUNRISE') ?: false);
 
 // Offload uploads to minio server, if set
-Config::define('MINIO_PORT', env('MINIO_PORT') ?: 9000);
+Config::define('MINIO_PORT', env('MINIO_PORT') ?: false);
 
 $minio_url = env('MINIO_URL'); // e.g. 'http://bedrock-minio:${MINIO_PORT}'
 $minio_port = Config::get('MINIO_PORT');
