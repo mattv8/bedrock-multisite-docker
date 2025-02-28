@@ -6,6 +6,10 @@ vendor/bin/phpcs -i | tr ',' '\n' | awk '{print $NF}' | xargs -I{} vendor/bin/ph
 
 Running tests locally:
 git ls-files '*.php' -z | xargs -0 vendor/bin/phpcs \-\-standard=.vscode/tests/phpcs.xml > logs/phpcs.log
+
+To set default standards:
+vendor/bin/phpcs \-\-config-set default_standard .vscode/tests/phpcs.xml
+
  -->
 <ruleset name="PHPCS">
   <description>Bedrock Coding Standards</description>

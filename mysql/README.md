@@ -57,7 +57,7 @@ rsync -vrz /path/to/vanillawp/wp-content/uploads/ ./web/app/uploads/
 
 ### Step 5: Recreate MariaDB Docker Container
     ```bash
-    sudo docker compose stop mariadb
+    sudo docker compose stop
     sudo docker volume rm $(basename "$PWD")_db_data
     ```
 The next time you run `docker compose up`, the MariaDB container will initialize with a clean database, and your SQL dump will be restored.

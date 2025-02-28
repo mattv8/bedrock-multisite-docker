@@ -26,25 +26,33 @@ class Uploader
     protected $s3_client;
     protected $bucket;
     protected $minio_url;
+    protected $minio_key;
+    protected $minio_secret;
 
     /**
      * Uploader constructor.
      * Initializes the uploader and sets up the S3 client for MinIO.
      */
-    public function __construct() {
-        // Setup S3 client using AWS SDK (MinIO is S3-compatible)
-        $this->s3_client = new S3Client([
-            'version'     => 'latest',
-            'region'      => 'us-east-1', // region doesn't matter much for MinIO
-            'endpoint'    => Config::get('MINIO_URL'),
-            'use_path_style_endpoint' => true,
-            'credentials' => [
-                'key'    => Config::get('MINIO_KEY'),
-                'secret' => Config::get('MINIO_SECRET'),
-            ],
-        ]);
-        $this->bucket = Config::get('MINIO_BUCKET');
-        $this->minio_url = Config::get('MINIO_URL');
+    public function __construct()
+    {
+        $this->minio_url    = Config::get('MINIO_URL');
+        $this->minio_key    = Config::get('MINIO_KEY');
+        $this->minio_secret = Config::get('MINIO_SECRET');
+        $this->bucket       = Config::get('MINIO_BUCKET');
+
+        if (!empty($this->minio_url) && !empty($this->minio_key) && !empty($this->minio_secret)) {
+            // Setup S3 client using AWS SDK (MinIO is S3-compatible)
+            $this->s3_client = new S3Client([
+                'version'                 => 'latest',
+                'region'                  => 'us-east-1', // Region is arbitrary for MinIO.
+                'endpoint'                => $this->minio_url,
+                'use_path_style_endpoint' => true,
+                'credentials'             => [
+                    'key'    => $this->minio_key,
+                    'secret' => $this->minio_secret,
+                ],
+            ]);
+        }
     }
 
     /**
@@ -55,7 +63,9 @@ class Uploader
      *
      * @return void
      */
-    public function add_filters() {
+    public function add_filters()
+    {
+
         // Intercept the file upload handling to offload files to MinIO
         add_filter('wp_handle_upload', [$this, 'handle_upload_to_minio']);
         add_action('delete_attachment', [$this, 'delete_from_minio']);
@@ -71,7 +81,13 @@ class Uploader
      * @param  array $upload The file upload information from wp_handle_upload.
      * @return array The modified upload array, with a new URL pointing to MinIO, or WP_Error on failure.
      */
-    public function handle_upload_to_minio(array $upload) {
+    public function handle_upload_to_minio(array $upload)
+    {
+        if (empty($this->minio_url) || empty($this->minio_key) || empty($this->minio_secret)) {
+            error_log('[ERROR] MINIO_URL, MINIO_KEY, and MINIO_SECRET must be set in your .env file. Defaulting to local uploads.');
+            return;
+        }
+
         global $current_blog;
 
         if (!isset($upload['file']) || !isset($upload['url'])) {
@@ -135,7 +151,6 @@ class Uploader
 
             // Update the file URL to point to MinIO with the correct object key
             $upload['url'] = $this->minio_url . '/' . $object_key;
-
         } catch (\Exception $e) {
             error_log('MinIO upload error: ' . $e->getMessage());
             return new WP_Error('upload_error', 'Error uploading file to MinIO: ' . $e->getMessage());
@@ -150,7 +165,13 @@ class Uploader
      * @param  integer $attachment_id The ID of the attachment being deleted.
      * @return void
      */
-    public function delete_from_minio(int $attachment_id) {
+    public function delete_from_minio(int $attachment_id)
+    {
+        if (empty($this->minio_url) || empty($this->minio_key) || empty($this->minio_secret)) {
+            error_log('[ERROR] MINIO_URL, MINIO_KEY, and MINIO_SECRET must be set in your .env file. Defaulting to local uploads.');
+            return;
+        }
+
         global $current_blog;
         $attachment = get_post($attachment_id);
         $file_url = $attachment->guid;
@@ -185,5 +206,4 @@ class Uploader
             error_log('Error deleting main file from MinIO: ' . $e->getMessage());
         }
     }
-
 }

@@ -90,19 +90,23 @@ MinIO is an S3-compatible object storage solution included in this setup to hand
 - **Multisite Support**: Easily manage media files across multiple sites.
 - **Dynamic URL Rewriting**: The `Rewrite.php` mu-plugin ensures all uploaded files' URLs are dynamically rewritten to use the MinIO bucket URL, leveraging the `rewriteURL($url)` function for seamless integration.
 
-#### How to Use MinIO:
-1. **Set Up MinIO**:
+#### How to Use MinIO
+
+1. **Set Up MinIO:**
    - Access the MinIO web interface at [http://localhost:9001](http://localhost:9001).
-   - Log in using the credentials defined in your `.env` file (e.g., `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`).
-   - Create a bucket for your WordPress site (e.g., `wordpress-media`).
+   - Log in using the credentials defined in your `.env` file (`MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`).
+   - Create a bucket for your WordPress media (e.g., `wordpress-media`).
 
-2. **Configure Environment Variables**:
-   - Add `MINIO_URL` (e.g., `http://localhost:9000`) and `MINIO_BUCKET` (e.g., `wordpress-media`) to your `.env` file.
+2. **Configure API Credentials:**
+   - In the MinIO console, navigate to the **Identity** or **Users** section.
+   - Create a new user to act as your API key by specifying an Access Key and Secret Key.
+   - Assign a policy that grants the new user access to your bucket.
+   - Add these values as `MINIO_KEY` and `MINIO_SECRET` in your `.env` file.
 
-3. **Coming Soon**:
-  - Upload management direclty to MinIO through Wordpress...
+3. **Configure Environment Variables:**
+   - Update `MINIO_URL` (e.g., `http://localhost:9000`) and `MINIO_BUCKET` (e.g., `wordpress-media`) in your `.env` file.
 
-> **Tip:** The dynamic URL rewriting ensures compatibility with both local and production setups. Adjust the `MINIO_URL` in `.env` as needed for staging or production environments.
+> **Tip:** The dynamic URL rewriting ensures compatibility with both local and production setups. Adjust `MINIO_URL` in your `.env` as needed for staging or production environments.
 
 ## Migrating vanilla Wordpress to Bedrock WP
 See [mysql/README.md](mysql/README.md)

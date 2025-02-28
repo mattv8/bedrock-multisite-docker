@@ -41,7 +41,8 @@ class Rewriter
      * Initializes domain settings, upload paths, and MinIO/S3 configuration.
      * Fetches base domain and port settings from configuration.
      */
-    public function __construct() {
+    public function __construct()
+    {
         // Uploads Directory
         // Fetch uploads directory base URL once to avoid recursion issues
         $uploads_dir = wp_get_upload_dir();
@@ -84,7 +85,8 @@ class Rewriter
      *
      * @return void
      */
-    public function add_filters() {
+    public function add_filters()
+    {
         // Primary Site URL Rewrites
         add_filter('option_home', [$this, 'rewrite_site_url']);
         add_filter('option_siteurl', [$this, 'rewrite_site_url']);
@@ -116,7 +118,8 @@ class Rewriter
      *
      * @return string The rewritten URL after applying the transformations.
      */
-    public function rewrite_site_url(mixed $url) {
+    public function rewrite_site_url(mixed $url)
+    {
 
         // If $url is a string, rewrite it directly
         if (is_string($url)) {
@@ -156,7 +159,8 @@ class Rewriter
      *
      * @return string The rewritten URL(s), or the original URL if no rewriting was needed.
      */
-    protected function rewrite_url(string $url) {
+    protected function rewrite_url(string $url)
+    {
         global $current_blog;
 
         // First, check cache to prevent repeated rewrites
@@ -193,22 +197,24 @@ class Rewriter
 
         // Rewrite any media URL's to MinIO
         if ($path && strpos($path, '/app/uploads') !== false) {
-
             // Check that minio parameters have been set before continuing
             if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($host, $this->minio_url) !== false) {
                 $this->rewrite_cache[$url] = $url;
                 return $this->rewrite_cache[$url];
             }
 
+            // Adjust MINIO_URL for local development based on WP_HOME from .env
+            if ($this->wp_base_domain['without_port'] === 'localhost') {
+                $this->minio_url = $this->scheme . '://' . $this->wp_base_domain['without_port'] . ':' . Config::get('MINIO_PORT');
+            }
+
             // If this is a multi-site install, we need to include the blog_id
-            $uploads_path = strpos($path, '/app/uploads/sites/') !== false
-                ? "/sites/{$current_blog->blog_id}"
-                : '';
+            $upload_prefix = is_multisite() ? 'uploads/sites/' . $current_blog->blog_id : 'uploads';
 
             // Rewrite the url
             $rewritten_url = str_replace(
                 "{$this->uploads_baseurl}",
-                "{$this->minio_url}/{$this->minio_bucket}/uploads{$uploads_path}",
+                "{$this->minio_url}/{$this->minio_bucket}/{$upload_prefix}",
                 $url
             );
 
@@ -234,7 +240,6 @@ class Rewriter
         $suffix_present = $subdomain && strpos($subdomain, $this->subdomain_suffix) !== false;
 
         if (!$suffix_present && $base_domain_present) {
-
             // If the scheme is not as expected, correct it.
             $wrong_scheme = $parsed_url['scheme'] !== $this->scheme ? true : false;
             $url_with_scheme = $wrong_scheme ? $this->scheme . '://' . preg_replace('/^https?:\/\//', '', $url) : $url;
@@ -291,7 +296,8 @@ class Rewriter
      *
      * @return void
      */
-    protected function set_cookie_domain(): void {
+    protected function set_cookie_domain(): void
+    {
         $domain = strtolower($_SERVER['HTTP_HOST'] ?? '');
         $parts = explode('.', $domain);
         $subdomain = (strpos($parts[0], $this->wp_base_domain['with_port']) === false) ? $parts[0] : null;
@@ -304,8 +310,23 @@ class Rewriter
             ? "$subdomain{$this->subdomain_suffix}.{$this->wp_base_domain['without_port']}"
             : $this->wp_base_domain['without_port'];
 
-        define('COOKIE_DOMAIN', $cookie_domain);
-        define('ADMIN_COOKIE_PATH', '/wp-admin');
+        // Check COOKIE_DOMAIN
+        if (defined('COOKIE_DOMAIN')) {
+            if (COOKIE_DOMAIN !== $cookie_domain) {
+                error_log("[Rewriter] COOKIE_DOMAIN mismatch: defined as " . COOKIE_DOMAIN . " but expected $cookie_domain");
+            }
+        } else {
+            define('COOKIE_DOMAIN', $cookie_domain);
+        }
+
+        // Check ADMIN_COOKIE_PATH
+        if (defined('ADMIN_COOKIE_PATH')) {
+            if (ADMIN_COOKIE_PATH !== '/wp-admin') {
+                error_log("[Rewriter] ADMIN_COOKIE_PATH mismatch: defined as " . ADMIN_COOKIE_PATH . " but expected /wp-admin");
+            }
+        } else {
+            define('ADMIN_COOKIE_PATH', '/wp-admin');
+        }
 
         if ($this->log_rewrites) {
             error_log("[Rewriter]: COOKIE_DOMAIN: $cookie_domain");
@@ -323,7 +344,8 @@ class Rewriter
      * @param  string $url The URL from which to extract the base domain and port.
      * @return string|null The base domain with the port appended (if present and not implied), or null on failure.
      */
-    protected function get_base_domain(string $url) {
+    protected function get_base_domain(string $url)
+    {
         $parsed_url = parse_url($url);
         if (!isset($parsed_url['host'])) {
             error_log("[Rewriter]: Invalid URL: $url");
@@ -376,7 +398,8 @@ class Rewriter
      * @return string|boolean Either a boolean indicating if a subdomain is present, or a string
      *                        containing the subdomain .
      */
-    private function get_subdomain(string $host) {
+    private function get_subdomain(string $host)
+    {
         // Extract host from URL
         if (!$host || filter_var($host, FILTER_VALIDATE_IP) || $host === 'localhost') {
             return false;
@@ -388,5 +411,4 @@ class Rewriter
         }
         return false; // No subdomain found
     }
-
 }
