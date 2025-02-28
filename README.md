@@ -93,17 +93,19 @@ MinIO is an S3-compatible object storage solution included in this setup to hand
 #### How to Use MinIO
 
 1. **Set Up MinIO:**
-   - Access the MinIO web interface at [http://localhost:9001](http://localhost:9001).
+   - Access the MinIO web interface at [http://localhost:${MINIO_GUI}](http://localhost:9001).
    - Log in using the credentials defined in your `.env` file (`MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`).
    - Create a bucket for your WordPress media (e.g., `wordpress-media`).
+   - Make sure to set the bucket's *Access Policy* to *Public*
 
 2. **Configure API Credentials:**
+   Optionally, If you would like to enable media uploads directly to MinIO, you will need to configure an *Access Key*.
    - In the MinIO console, navigate to the **Identity** or **Users** section.
-   - Create a new user to act as your API key by specifying an Access Key and Secret Key.
-   - Assign a policy that grants the new user access to your bucket.
+   - Create a new user and assign a policy that grants the new user access to your bucket (e.g. `readwrite`).
+   - Then go to *Identity > Users > {your_user} > Service Accounts* and generate an Access Key and Secret Key.
    - Add these values as `MINIO_KEY` and `MINIO_SECRET` in your `.env` file.
 
-3. **Configure Environment Variables:**
+4. **Configure Environment Variables:**
    - Update `MINIO_URL` (e.g., `http://localhost:9000`) and `MINIO_BUCKET` (e.g., `wordpress-media`) in your `.env` file.
 
 > **Tip:** The dynamic URL rewriting ensures compatibility with both local and production setups. Adjust `MINIO_URL` in your `.env` as needed for staging or production environments.
