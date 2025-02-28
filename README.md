@@ -99,6 +99,7 @@ MinIO is an S3-compatible object storage solution included in this setup to hand
    - Make sure to set the bucket's *Access Policy* to *Public*
 
 2. **Configure API Credentials:**
+   
    Optionally, If you would like to enable media uploads directly to MinIO, you will need to configure an *Access Key*.
    - In the MinIO console, navigate to the **Identity** or **Users** section.
    - Create a new user and assign a policy that grants the new user access to your bucket (e.g. `readwrite`).
