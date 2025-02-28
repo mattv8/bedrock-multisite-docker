@@ -68,6 +68,7 @@ class Uploader
 
         // Intercept the file upload handling to offload files to MinIO
         add_filter('wp_handle_upload', [$this, 'handle_upload_to_minio']);
+        add_filter('wp_generate_attachment_metadata', [$this, 'offload_thumbnails_to_minio'], 10, 2);
         add_action('delete_attachment', [$this, 'delete_from_minio']);
 
         // Rewrite media URL's
@@ -85,7 +86,7 @@ class Uploader
     {
         if (empty($this->minio_url) || empty($this->minio_key) || empty($this->minio_secret)) {
             error_log('[ERROR] MINIO_URL, MINIO_KEY, and MINIO_SECRET must be set in your .env file. Defaulting to local uploads.');
-            return;
+            return $upload;
         }
 
         global $current_blog;
@@ -111,45 +112,7 @@ class Uploader
                 'Body'   => fopen($file_path, 'r'),
                 'ACL'    => 'public-read',
             ]);
-
-            // Generate thumbnails
-            include_once ABSPATH . 'wp-admin/includes/image.php';
-
-            // Insert the attachment so WordPress tracks it
-            $attachment = [
-                'post_mime_type' => $upload['type'],
-                'post_title'     => sanitize_file_name($file_name),
-                'post_content'   => '',
-                'post_status'    => 'inherit',
-                'guid'           => $upload['url'],
-            ];
-
-            // Insert the attachment to get the attachment ID
-            $attachment_id = wp_insert_attachment($attachment, $file_path);
-
-            // After inserting the attachment, generate and update metadata
-            if ($attachment_id) {
-                $metadata = wp_generate_attachment_metadata($attachment_id, $file_path);
-                if (!is_wp_error($metadata)) {
-                    wp_update_attachment_metadata($attachment_id, $metadata);
-
-                    // Upload each generated thumbnail to MinIO
-                    foreach ($metadata['sizes'] as $size => $info) {
-                        $thumb_path = dirname($file_path) . '/' . $info['file'];
-                        $thumb_key  = $upload_path_prefix . date('Y/m') . '/' . $info['file'];
-                        if (file_exists($thumb_path)) {
-                            $this->s3_client->putObject([
-                                'Bucket' => $this->bucket,
-                                'Key'    => $thumb_key,
-                                'Body'   => fopen($thumb_path, 'r'),
-                                'ACL'    => 'public-read',
-                            ]);
-                        }
-                    }
-                }
-            }
-
-            // Update the file URL to point to MinIO with the correct object key
+            // Update the URL to point to MinIO
             $upload['url'] = $this->minio_url . '/' . $object_key;
         } catch (\Exception $e) {
             error_log('MinIO upload error: ' . $e->getMessage());
@@ -157,6 +120,32 @@ class Uploader
         }
 
         return $upload;
+    }
+
+    public function offload_thumbnails_to_minio($metadata, $attachment_id) {
+        global $current_blog;
+        $upload_path_prefix = is_multisite() ? 'uploads/sites/' . $current_blog->blog_id . '/' : 'uploads/';
+
+        foreach ($metadata['sizes'] as $size => &$info) {
+            $thumb_path = dirname(get_attached_file($attachment_id)) . '/' . $info['file'];
+            $thumb_key  = $upload_path_prefix . date('Y/m') . '/' . $info['file'];
+
+            if (file_exists($thumb_path)) {
+                try {
+                    $this->s3_client->putObject([
+                        'Bucket' => $this->bucket,
+                        'Key'    => $thumb_key,
+                        'Body'   => fopen($thumb_path, 'r'),
+                        'ACL'    => 'public-read',
+                    ]);
+                    // Optionally, update metadata with the MinIO URL for this size.
+                    $info['url'] = $this->minio_url . '/' . $thumb_key;
+                } catch (\Exception $e) {
+                    error_log('MinIO thumbnail upload error: ' . $e->getMessage());
+                }
+            }
+        }
+        return $metadata;
     }
 
     /**
