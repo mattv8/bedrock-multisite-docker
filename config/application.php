@@ -201,6 +201,8 @@ Config::define('SUNRISE', env('SUNRISE') ?: false);
 // Offload uploads to minio server, if set
 Config::define('MINIO_URL', env('MINIO_URL') ?: false);
 Config::define('MINIO_BUCKET', env('MINIO_BUCKET') ?: false);
+Config::define('MINIO_KEY', env('MINIO_KEY') ?: false);
+Config::define('MINIO_SECRET', env('MINIO_SECRET') ?: false);
 
 if (in_array(WP_ENV, ['development'])) {
     // Log the last loaded PHP file

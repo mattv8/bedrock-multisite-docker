@@ -36,7 +36,7 @@ class Mailer
      *
      * @return void
      */
-    public function add_mailhog_actions() {
+    public function add_filters() {
         add_action('wp_mail_failed', [$this, 'action_wp_mail_failed'], 10, 1);
         add_action('phpmailer_init', [$this, 'set_php_mailer'], 10, 1);
     }

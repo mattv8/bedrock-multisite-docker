@@ -8,14 +8,17 @@
 // Load Bedrock's autoload to ensure environment variables are available
 require_once dirname(__DIR__, 4) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 4) . '/config/application.php';
+require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/Rewriter.php';
 require_once __DIR__ . '/Mailer.php';
+require_once __DIR__ . '/Uploader.php';
 
 use URL\Rewriter;
 use URL\Mailer;
-
-(new Rewriter())->add_filters();
+use URL\Uploader;
 
 if (defined('WP_ENV') && in_array(WP_ENV, ['development', 'staging'], true)) {
-    (new URL\Mailer())->add_mailhog_actions();
+    (new Rewriter())->add_filters();
+    (new Uploader())->add_filters();
+    (new Mailer()  )->add_filters();
 }

@@ -1,0 +1,20 @@
+{
+    "name": "mattv8/url-rewriter",
+    "description": "A robust multi-purpose Bedrock WordPress rewriter.",
+    "type": "metapackage",
+    "require": {
+        "aws/aws-sdk-php": "^3.339"
+    },
+    "license": "AGPL-3.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "Mattv8\\UrlRewriter\\": "."
+        }
+    },
+    "authors": [
+        {
+            "name": "mattv8",
+            "email": "matt@visnovsky.uw"
+        }
+    ]
+}

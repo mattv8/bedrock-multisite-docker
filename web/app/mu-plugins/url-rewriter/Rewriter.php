@@ -46,7 +46,7 @@ class Rewriter
         // Fetch uploads directory base URL once to avoid recursion issues
         $uploads_dir = wp_get_upload_dir();
         $this->uploads_baseurl = $uploads_dir['baseurl']; // e.g. http://localhost:81/app/uploads/sites/3
-        $this->uploads_path = str_replace("/app/uploads/", "", parse_url($uploads_dir['url'])['path']); // e.g. sites/3/2024/11
+        $this->uploads_path = str_replace("/app/uploads/", "", parse_url($uploads_dir['url'], PHP_URL_PATH)); // e.g. sites/3/2024/11
 
         // MinIO or S3 Rewrites
         $this->minio_url = Config::get('MINIO_URL', '');
@@ -58,8 +58,7 @@ class Rewriter
         $this->port = Config::get('NGINX_PORT') ?: '';
         $wp_home = Config::get('WP_HOME', 'http://localhost');
         $this->wp_base_domain = $this->get_base_domain($wp_home);
-        $parsed_wp_home = parse_url($wp_home);
-        $this->scheme = $parsed_wp_home['scheme'];
+        $this->scheme = parse_url($wp_home, PHP_URL_SCHEME);
 
         // Production Domain
         // Load the production domain from the environment
@@ -86,23 +85,23 @@ class Rewriter
      * @return void
      */
     public function add_filters() {
+        // Primary Site URL Rewrites
         add_filter('option_home', [$this, 'rewrite_site_url']);
         add_filter('option_siteurl', [$this, 'rewrite_site_url']);
 
+        // Multisite URL Rewrites
         if (is_multisite()) {
             add_filter('network_site_url', [$this, 'rewrite_site_url']);
             add_filter('network_admin_url', [$this, 'rewrite_site_url']);
         }
 
-        // Media-specific filters
-        add_filter('upload_dir', [$this, 'rewrite_site_url']);
+        // Redirect URL Rewrites
         add_filter('login_redirect', [$this, 'rewrite_site_url']);
         add_filter('wp_redirect', [$this, 'rewrite_site_url']);
 
-        // Uncomment below lines if filters for scripts, styles, and other items are needed
+        // Asset URL Rewrites
         add_filter('script_loader_src', [$this, 'rewrite_site_url']);
         add_filter('style_loader_src', [$this, 'rewrite_site_url']);
-
         add_filter('plugins_url', [$this, 'rewrite_site_url']);
     }
 
@@ -153,9 +152,9 @@ class Rewriter
      * same URL is not processed multiple times. The URL is rewritten only if certain conditions are met
      * based on the configured base domain, production domain, and subdomain suffix.
      *
-     * @param string|array $url The URL(s) to be rewritten. Can be a single URL or an array of URLs (e.g., for srcset).
+     * @param string $url The URL(s) to be rewritten. Can be a single URL or an array of URLs (e.g., for srcset).
      *
-     * @return string|array The rewritten URL(s), or the original URL if no rewriting was needed.
+     * @return string The rewritten URL(s), or the original URL if no rewriting was needed.
      */
     protected function rewrite_url(string $url) {
         global $current_blog;
@@ -208,8 +207,8 @@ class Rewriter
 
             // Rewrite the url
             $rewritten_url = str_replace(
-                $this->uploads_baseurl,
-                "{$this->minio_url}/{$this->minio_bucket}{$uploads_path}",
+                "{$this->uploads_baseurl}",
+                "{$this->minio_url}/{$this->minio_bucket}/uploads{$uploads_path}",
                 $url
             );
 
@@ -231,13 +230,13 @@ class Rewriter
         ], true);
 
         // Check if the base domain and subdomain suffix are present in the URL
-        $subdomain = $this->get_subdomain($url);
+        $subdomain = $this->get_subdomain($host);
         $suffix_present = $subdomain && strpos($subdomain, $this->subdomain_suffix) !== false;
 
         if (!$suffix_present && $base_domain_present) {
 
             // If the scheme is not as expected, correct it.
-            $wrong_scheme = parse_url($url, PHP_URL_SCHEME) !== $this->scheme ? true : false;
+            $wrong_scheme = $parsed_url['scheme'] !== $this->scheme ? true : false;
             $url_with_scheme = $wrong_scheme ? $this->scheme . '://' . preg_replace('/^https?:\/\//', '', $url) : $url;
 
             // If the port is missing and needs to be added, correct it.
@@ -339,10 +338,9 @@ class Rewriter
         // Split the host into parts
         $host_parts = explode('.', $host);
 
-
         // Determine the base domain based on common patterns
         $num_parts = count($host_parts);
-        if (strpos($host, 'localhost')) {
+        if (strpos($host, 'localhost') !== false) {
             $base_domain = 'localhost';
         } elseif ($num_parts > 2) {
             // Handle domains like example.co.uk
@@ -371,25 +369,23 @@ class Rewriter
      * The URL can optionally include a scheme (http or https) and port number.
      *
      * Example:
-     * getSubdomain("http://docs.example.com:8080") will return [true, 'docs'].
-     * getSubdomain("example.com") will return [false, ''].
+     * getSubdomain("http://docs.example.com:8080") will return 'docs'.
+     * getSubdomain("example.com") will return false.
      *
-     * @param  string $url The URL to check for a subdomain.
+     * @param  string $host The $host to check for a subdomain, without a path (e.g. parse_url($url, PHP_URL_HOST)).
      * @return string|boolean Either a boolean indicating if a subdomain is present, or a string
      *                        containing the subdomain .
      */
-    private function get_subdomain(string $url) {
+    private function get_subdomain(string $host) {
         // Extract host from URL
-        $host = parse_url($url, PHP_URL_HOST);
         if (!$host || filter_var($host, FILTER_VALIDATE_IP) || $host === 'localhost') {
             return false;
         }
 
         // Match subdomain and domain
-        if (preg_match('/^((?:[a-z0-9\-]+\.)+)([a-z0-9\-]{2,}(?:\.[a-z]{2,6})?)$/i', $host, $matches)) {
+        if (preg_match('/^((?:[a-z0-9\-]+\.)+)([a-z0-9\-]{2,}(?:\.[a-z]{2,6})?)(?::\d+)?$/i', $host, $matches)) {
             return rtrim($matches[1], '.'); // Return only the subdomain
         }
-
         return false; // No subdomain found
     }
 
