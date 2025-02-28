@@ -122,6 +122,17 @@ class Uploader
         return $upload;
     }
 
+    /**
+     * Offloads generated thumbnails to MinIO.
+     *
+     * For each thumbnail listed in the attachment metadata, this method uploads the file to MinIO
+     * using the appropriate path prefix based on whether the site is multisite or single-site.
+     * Upon successful upload, the thumbnail metadata is updated with its corresponding MinIO URL.
+     *
+     * @param  array   $metadata      The attachment metadata, including the 'sizes' array with thumbnail details.
+     * @param  integer $attachment_id The ID of the attachment whose thumbnails are being offloaded.
+     * @return array The updated metadata with MinIO URLs for each thumbnail.
+     */
     public function offload_thumbnails_to_minio($metadata, $attachment_id) {
         global $current_blog;
         $upload_path_prefix = is_multisite() ? 'uploads/sites/' . $current_blog->blog_id . '/' : 'uploads/';
