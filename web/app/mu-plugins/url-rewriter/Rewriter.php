@@ -196,7 +196,8 @@ class Rewriter
         }
 
         // Rewrite any media URL's to MinIO
-        if ($path && strpos($path, '/app/uploads') !== false) {
+        $pattern = '#(app|wp-content|wp-includes)/uploads(/|$)#';
+        if ($path && preg_match($pattern, $path)) {
             // Check that minio parameters have been set before continuing
             if (empty($this->minio_url) || empty($this->minio_bucket) || strpos($host, $this->minio_url) !== false) {
                 $this->rewrite_cache[$url] = $url;
