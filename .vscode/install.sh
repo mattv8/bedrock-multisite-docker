@@ -14,8 +14,8 @@ themes_dir="web/app/themes" # Themes directory
 export USER_ID=$(id -u)
 export GROUP_ID=$(id -g)
 
-echo -e "${Yellow}Current directory: $(pwd)${NC}"
-echo -e "${Yellow}Using USER_ID=${USER_ID} and GROUP_ID=${GROUP_ID} for Docker containers.${NC}"
+echo -e "${YELLOW}Current directory: $(pwd)${NC}"
+echo -e "${YELLOW}Using USER_ID=${USER_ID} and GROUP_ID=${GROUP_ID} for Docker containers.${NC}"
 
 # Check if .env file exists
 check_dot_env() {
