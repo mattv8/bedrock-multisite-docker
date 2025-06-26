@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "valeryanm.vscode-phpsab",
+        "dbaeumer.vscode-eslint",
+        "ecmel.vscode-html-css",
+        "bmewburn.vscode-intelephense-client",
+        "shufo.vscode-blade-formatter",
+        "aswinkumar863.smarty-template-support"
+    ]
+}

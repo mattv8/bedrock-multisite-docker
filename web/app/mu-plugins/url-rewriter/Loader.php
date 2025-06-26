@@ -18,7 +18,7 @@ use URL\Mailer;
 use URL\Uploader;
 
 if (defined('WP_ENV') && in_array(WP_ENV, ['development', 'staging'], true)) {
-    (new Rewriter())->add_filters();
-    (new Uploader())->add_filters();
     (new Mailer()  )->add_filters();
 }
+(new Rewriter())->add_filters();
+(new Uploader())->add_filters();

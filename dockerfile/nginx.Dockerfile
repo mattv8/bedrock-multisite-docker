@@ -7,6 +7,12 @@ ARG WP_HOME
 ENV WP_HOME=${WP_HOME}
 ARG SUBDOMAIN_SUFFIX
 ENV SUBDOMAIN_SUFFIX=${SUBDOMAIN_SUFFIX}
+ARG MINIO_URL
+ENV MINIO_URL=${MINIO_URL}
+ARG MINIO_PROXY
+ENV MINIO_PROXY=${MINIO_PROXY}
+ARG MINIO_BUCKET
+ENV MINIO_BUCKET=${MINIO_BUCKET}
 
 # Set arguments for USER_ID and GROUP_ID (provided by docker-compose)
 ARG USER_ID
@@ -49,8 +55,9 @@ RUN eval printf \"$LOG_ROTATE_CONFIG_TEMPLATE\" | tee ~/logrotate.conf > /dev/nu
 RUN apt-get update && apt-get install -y logrotate && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy the Nginx template into the expected location
+# Copy the Nginx template and rate limiting config into the expected locations
 COPY default.conf.template /etc/nginx/templates/default.conf.template
+COPY rate-limits.conf /etc/nginx/conf.d/rate-limits.conf
 
 # Remove comments from the processed default.conf at runtime for a clean output
 RUN sed -i '/^#/d' /etc/nginx/templates/default.conf.template
@@ -59,6 +66,8 @@ RUN sed -i '/^#/d' /etc/nginx/templates/default.conf.template
 CMD ["/bin/bash", "-c", "\
     export WP_HOME=$(echo \"$WP_HOME\" | sed -E 's|https?://([a-zA-Z0-9_-]+\\.)?([a-zA-Z0-9_-]+\\.[a-zA-Z]{2,}\\|localhost)|\\2|'); \
     export SUBDOMAIN_SUFFIX=\"$SUBDOMAIN_SUFFIX\"; \
+    export MINIO_URL=\"$MINIO_URL\"; \
+    export MINIO_BUCKET=\"$MINIO_BUCKET\"; \
     chmod 644 ~/logrotate.conf && chown --no-dereference --preserve-root 0 ~/logrotate.conf; \
     while :; do \
         echo \"Rotating logs.\"; \

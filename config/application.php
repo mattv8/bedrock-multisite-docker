@@ -74,9 +74,6 @@ $wp_home = (strpos(env('WP_HOME'), 'localhost') !== false) ? env('WP_HOME') . $n
 
 // Default DOMAIN_CURRENT_SITE if unset, adjusted for environment
 $domain_current_site = env('DOMAIN_CURRENT_SITE') ?: 'localhost';
-if (WP_ENV === 'production') {
-    $domain_current_site = $production_domain ?: $domain_current_site;
-}
 
 // Add subdomain suffix dynamically in non-production environments
 if (WP_ENV !== 'production' && $subdomain_suffix) {
@@ -200,8 +197,7 @@ Config::define('SUNRISE', env('SUNRISE') ?: false);
 
 // Offload uploads to minio server, if set
 Config::define('MINIO_PORT', env('MINIO_PORT') ?: false);
-
-$minio_url = env('MINIO_URL'); // e.g. 'http://bedrock-minio:${MINIO_PORT}'
+$minio_url = env('MINIO_URL');
 $minio_port = Config::get('MINIO_PORT');
 
 if (strpos($minio_url, '${MINIO_PORT}') !== false) {
@@ -211,25 +207,27 @@ Config::define('MINIO_URL', $minio_url ?: false);
 Config::define('MINIO_BUCKET', env('MINIO_BUCKET') ?: false);
 Config::define('MINIO_KEY', env('MINIO_KEY') ?: false);
 Config::define('MINIO_SECRET', env('MINIO_SECRET') ?: false);
+Config::define('MINIO_CHECKSUMS', env('MINIO_CHECKSUMS') !== null ? env('MINIO_CHECKSUMS') : true);
+Config::define('MINIO_PROXY', env('MINIO_PROXY') ?: false);
 
 if (in_array(WP_ENV, ['development'])) {
     // Log the last loaded PHP file
     register_shutdown_function(function () {
-        $lastError = error_get_last();
+        $last_error = error_get_last();
 
         // Initialize last file and stack trace variables
-        $stackTrace = [];
-        $basePath = '/var/www/';
+        $stack_trace = [];
+        $base_path = '/var/www/';
 
         // Check if an error occurred
-        if ($lastError) {
-            $lastFile = $lastError['file'] ?? false; // File from error
-            if ($lastFile) {
-                $lastFile = str_replace($basePath, '', $lastFile); // Make relative
-                $stackTrace[] = sprintf(
+        if ($last_error) {
+            $last_file = $last_error['file'] ?? false; // File from error
+            if ($last_file) {
+                $last_file = str_replace($base_path, '', $last_file); // Make relative
+                $stack_trace[] = sprintf(
                     '%s:%d %s',
-                    $lastFile,
-                    $lastError['line'] ?? 0,
+                    $last_file,
+                    $last_error['line'] ?? 0,
                     '[shutdown error]'
                 );
             }
@@ -237,9 +235,9 @@ if (in_array(WP_ENV, ['development'])) {
             // Use backtrace if no error
             $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
             foreach ($backtrace as $trace) {
-                $stackTrace[] = sprintf(
+                $stack_trace[] = sprintf(
                     '%s:%d %s%s%s',
-                    isset($trace['file']) ? str_replace($basePath, '', $trace['file']) : '[internal function]',
+                    isset($trace['file']) ? str_replace($base_path, '', $trace['file']) : '[internal function]',
                     $trace['line'] ?? 0,
                     $trace['class'] ?? '',
                     $trace['type'] ?? '',
@@ -248,32 +246,46 @@ if (in_array(WP_ENV, ['development'])) {
             }
         }
 
-        $logMessage = '';
+        $log_message = '';
 
         // Format the log message
-        if ($lastError) {
-            $logMessage = sprintf(
+        if ($last_error) {
+            $log_message = sprintf(
                 "[%s] PHP Error: [%d] %s in %s on line %d\n",
                 date('d-M-Y H:i:s e'),
-                $lastError['type'],
-                $lastError['message'],
-                $lastError['file'] ?? 'Unknown file',
-                $lastError['line'] ?? 0
+                $last_error['type'],
+                $last_error['message'],
+                $last_error['file'] ?? 'Unknown file',
+                $last_error['line'] ?? 0
             );
         }
 
-        if (!empty($stackTrace)) {
-            $logMessage .= "[Shutdown trace]\n" . implode("\n", $stackTrace) . "\n";
+        if (!empty($stack_trace)) {
+            $log_message .= "[Shutdown trace]\n" . implode("\n", $stack_trace) . "\n";
         }
 
         // Write the message to the debug log
-        if (!empty($lastError) && !empty($stackTrace)) {
-            error_log($logMessage, 3, Config::get('WP_DEBUG_LOG'));
+        if (!empty($last_error) && !empty($stack_trace)) {
+            error_log($log_message, 3, Config::get('WP_DEBUG_LOG'));
         } else {
-           //error_log("[Done]\n", 3, Config::get('WP_DEBUG_LOG'));
+            //error_log("[Done]\n", 3, Config::get('WP_DEBUG_LOG'));
         }
     });
 }
+
+// Parse BYPASS_URLS from .env into an array
+$bypass_urls_string = env('BYPASS_URLS') ?: false;
+$bypass_urls = [];
+if (!empty($bypass_urls_string)) {
+    // Split by comma and trim each entry
+    $raw_urls = array_map('trim', explode(',', $bypass_urls_string));
+
+    // Remove empty entries
+    $bypass_urls = array_filter($raw_urls, function($url) {
+        return !empty($url);
+    });
+}
+Config::define('BYPASS_URLS', $bypass_urls);
 
 /**
  * Apply Configuration

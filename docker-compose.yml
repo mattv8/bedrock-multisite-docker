@@ -7,6 +7,9 @@ services:
       args:
         WP_HOME: ${WP_HOME}
         SUBDOMAIN_SUFFIX: ${SUBDOMAIN_SUFFIX}
+        MINIO_URL: ${MINIO_URL}
+        MINIO_PROXY: ${MINIO_PROXY}
+        MINIO_BUCKET: ${MINIO_BUCKET}
         LOG_ROTATE_INTERVAL: ${LOG_ROTATE_INTERVAL}
         LOG_ROTATE_COUNT: ${LOG_ROTATE_COUNT}
         LOG_ROTATE_COMPRESS: ${LOG_ROTATE_COMPRESS}
@@ -36,6 +39,10 @@ services:
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - ./.env:/var/www/.env
       - ./web:/var/www/web:rw

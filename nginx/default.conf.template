@@ -2,31 +2,63 @@
 # CHANGES TO THIS FILE WHILE THE CONTAINER IS RUNNING WILL HAVE NO EFFECT.
 # This is a template for the Nginx configuration file. It is processed at
 # runtime to replace placeholders with environment variable values. To make
-# changes to the Nginx configuration, edit nginx/default.conf and restart
-# the Nginx container with:
-#   sudo docker restart nginx
+# changes to the Nginx configuration, you nust rebuild the nginx container
+# and restart the entire stack:
+#   sudo docker compose down
+#   sudo docker compose build nginx --no-cache
+#   sudo docker compose up -d
 #
 # Environment variables used for substitution in this template are set at
 # build time. To apply changes to this template, the Nginx Docker image must
-# be rebuilt using:
-#   sudo docker compose build nginx --no-cache
+# be rebuilt and the entire stack restarted.
 #
 # Note: Any runtime changes to environment variables require a container rebuild.
 # -----------------------------------------------------------------------------
+
 server {
     listen 80;
     listen [::]:80;
 
     server_name ${WP_HOME} *.${WP_HOME};
 
-    error_log  /var/www/log/nginx_error.log;
+    rewrite_log off;
+    error_log  /var/www/log/nginx_error.log info;
 
     root /var/www/web;
     index index.php index.html;
 
     # Subdomain multisite rewrites
     rewrite ^/(wp-.*.php)$ /wp/$1 last;
-    rewrite ^/(wp-(content|admin|includes).*) /wp/$1 last;
+    rewrite ^/(wp-(admin|includes).*) /wp/$1 last;
+
+    # -------------------------------------------------------------------------
+    # Media Files Fallback to MinIO
+    # -------------------------------------------------------------------------
+    location ^~ /wp-content/ {
+        try_files $uri $uri/ @minio;
+    }
+
+    location @minio {
+        internal;
+
+        # Capture the part after /wp-content/
+        set $minio_path "";
+        if ($uri ~ ^/wp-content/(.*)$) {
+            set $minio_path $1;
+        }
+
+        # $MINIO_PROXY will be blank if not set
+        set $try_proxy   "${MINIO_PROXY}";
+        set $try_default "${MINIO_URL}";
+
+        # If $MINIO_PROXY is set, redirect there (no bucket)
+        if ($try_proxy) {
+            return 301 $try_proxy/$minio_path;
+        }
+
+        # Otherwise redirect to default URL + bucket
+        return 301 $try_default/${MINIO_BUCKET}/$minio_path;
+    }
 
     client_max_body_size 64M;
 
@@ -34,11 +66,53 @@ server {
         try_files $uri $uri/ /index.php?$args;
     }
 
+    # Redirect access to xmlrpc.php
     location = /xmlrpc.php {
-      deny all;
-      access_log off;
+        deny all;
+        access_log off;
     }
 
+    # -------------------------------------------------------------------------
+    # Rate-limited WordPress and WooCommerce endpoints
+    # -------------------------------------------------------------------------
+    # Rate-limited admin-ajax.php (10r/m, burst 5)
+    location = /wp/wp-admin/admin-ajax.php {
+        limit_req zone=ajax_limit burst=5 nodelay;
+        include fastcgi_params;
+        fastcgi_pass php-fpm:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Rate-limited wp-login.php (5r/m, burst 3)
+    location = /wp/wp-login.php {
+        limit_req zone=login_limit burst=3 nodelay;
+        include fastcgi_params;
+        fastcgi_pass php-fpm:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Rate-limited wp-signup.php (3r/m, burst 2)
+    location = /wp/wp-signup.php {
+        limit_req zone=signup_limit burst=2 nodelay;
+        include fastcgi_params;
+        fastcgi_pass php-fpm:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Rate-limited admin-post.php (2r/m, burst 2)
+    location = /wp/wp-admin/admin-post.php {
+        limit_req zone=password_reset_limit burst=2 nodelay;
+        include fastcgi_params;
+        fastcgi_pass php-fpm:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    location ~ ^/(my-account|account)/ {
+        limit_req zone=login_limit burst=3 nodelay;
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    # PHP handling
     location ~ \.php$ {
         try_files $uri =404;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
@@ -47,6 +121,11 @@ server {
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param PATH_INFO $fastcgi_path_info;
+
+        # Increase buffer sizes to handle large headers
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 4 256k;
+        fastcgi_busy_buffers_size 256k;
 
         # Set PHP error handling directives
         fastcgi_param PHP_VALUE "log_errors=On\nerror_log=/var/www/log/php_errors.log\ndisplay_errors=Off";
